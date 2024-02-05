@@ -1,41 +1,40 @@
 #!/usr/bin/env bash
 
-# Checks whether the script is run as root
-check_for_root() {
+# Log messages with appropriate prefixes
+system_log() {
+  local log_type="$1"
+  local message="$2"
+  local log_file="$3"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ${log_type}: ${message}" | tee -a "${log_file}"
+}
+
+# Checks if the script is being run as root (used for apt)
+check_root() {
   if [[ ${EUID} -ne 0 ]]; then
-    echo "This script must be run as root."
+    echo "Please run as root"
     exit 1
   fi
 }
 
-# Checks whether a command is executable
-check_executability() {
+# Ensure command can execute
+ensure_command_is_executable() {
   local command="$1"
   if ! [[ -x "$(command -v "${command}")" ]]; then
-    log_message "Error: ${command} not found or not executable."
+    system_log "ERROR" "${command} not found or not executable." "${log_file}"
     exit 1
   fi
 }
 
-# Create a file if it doesn't exist
+# Ensure that a file exists
 create_file_if_not_exists() {
   local file="$1"
-  if ! [[ -f ${file}   ]]; then
-    touch "${file}"
-    if ! [[ -f ${file}   ]]; then
-      log_message "Error: Failed to create file ${file}."
+  if [[ ! -f ${file} ]]; then
+    touch "${file}" || {
+      system_log "ERROR" "Unable to create file: ${file}" "${log_file}"
       exit 1
-    fi
+    }
   fi
 }
-
-# Add a timestamp to the log message and print it to stdout and the log file
-log_message() {
-    local date
-    date=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${date}] $1" | tee -a "${log_file}"
-}
-
 
 # Send an email with the given subject and content to the given recipient
 send_email() {
@@ -49,20 +48,20 @@ send_email() {
   hostname=$(hostname)
 
   if [[ -z ${recipient} ]]; then
-    log_message "Error: Email recipient not specified."
+    system_log "ERROR" "Email recipient not specified." "${log_file}"
     return 1
   fi
 
   if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${recipient}\n\n${content}" | ${mail_tool} -f "${recipient}" -t "${recipient}"; then
-    log_message "Error: Failed to send email."
+    system_log "ERROR" "Failed to send email." "${log_file}"
   else
-    log_message "Email sent: ${subject}"
+    system_log "INFO" "Email sent: ${subject}" "${log_file}"
   fi
 }
 
 # Handle the daily rkhunter run and send an email if there are warnings
 handle_updates() {
-  local rkhunter_path="$1"
+  local rkhunter="$1"
   local recipient="$2"
   local report_file="$3"
 
@@ -71,8 +70,8 @@ handle_updates() {
 
   # Check if CRON_DAILY_RUN is set and proceed if it's true
   if [[ ${CRON_DAILY_RUN} =~ [YyTt]* ]]; then
-    log_message "Starting rkhunter daily run..."
-    /usr/bin/nice -n "${nice}" "${rkhunter_path}" --cronjob --report-warnings-only --appendlog > "${report_file}" 2>&1
+    system_log "INFO" "Starting rkhunter daily run..." "${log_file}"
+    /usr/bin/nice -n "${nice}" "${rkhunter}" --cronjob --report-warnings-only --appendlog > "${report_file}" 2>&1
 
     local report_content
     local hostname
@@ -87,17 +86,16 @@ handle_updates() {
     subject="[rkhunter] - [${hostname}] - [Daily Report] - [$(date '+%Y-%m-%d %H:%M')]"
 
     send_email "${subject}" "${report_content}" "${recipient}"
-    log_message "Daily report email sent."
+    system_log "INFO" "Daily report email sent." "${log_file}"
   else
-    log_message "CRON_DAILY_RUN is not set to true. Exiting."
+    system_log "ERROR" "CRON_DAILY_RUN is not set to true. Exiting." "${log_file}"
     exit 0
   fi
 }
 
 # Main function
 main() {
-  # Check if the script is run as root
-  check_for_root
+  check_root
 
   # Source config
   . /etc/default/rkhunter
@@ -105,18 +103,18 @@ main() {
   log_file="/var/log/rkhunter.log"
   report_file="/tmp/rkhunter_report.log"
 
-  local rkhunter_path
-  rkhunter_path=$(command -v rkhunter)
+  local rkhunter="rkhunter"
+  local mta="sendmail"
 
   # Check if rkhunter is installed and executable
-  check_executability "${rkhunter_path}"
-  check_executability "sendmail"
+  ensure_command_is_executable "${rkhunter}"
+  ensure_command_is_executable "${mta}"
 
   create_file_if_not_exists "${log_file}"
   create_file_if_not_exists "${report_file}"
 
   # Handle the daily rkhunter run
-  handle_updates "${rkhunter_path}" "${REPORT_EMAIL}" "${report_file}"
+  handle_updates "${rkhunter}" "${REPORT_EMAIL}" "${report_file}"
 }
 
 main "$@"

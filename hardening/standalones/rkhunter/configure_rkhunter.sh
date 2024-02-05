@@ -38,9 +38,3 @@ configure_rkhunter() {
     sed -i -e 's|^[#]*[[:space:]]*APT_AUTOGEN=.*|APT_AUTOGEN="true"|' /etc/default/rkhunter # enable automatic updates
 
 }
-
-main() {
-  configure_rkhunter
-}
-
-main "$@"

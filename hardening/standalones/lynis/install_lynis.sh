@@ -1,40 +1,5 @@
 #!/usr/bin/env bash
 
-# Validate that the script is being run as root
-validate_root() {
-  if [[ ${EUID} -ne 0 ]]; then
-    echo "This script must be run as root"
-    exit 1
-  fi
-}
-
-# Updates the cron job for a script
-update_cron_job() {
-  local script="$1"
-  local log_file="$2"
-  local cron_entry="0 0 * * * ${script} >${log_file} 2>&1"
-
-  local current_cron_job
-  current_cron_job=$(crontab -l | grep "${script}")
-
-  if [[ -z ${current_cron_job}   ]] || [[ ${current_cron_job} != "${cron_entry}"   ]]; then
-    (
-      crontab -l 2> /dev/null | grep -v "${script}"
-                                                         echo "${cron_entry}"
-    )                                                                          | crontab -
-    echo "Cron job updated."
-  else
-    echo "Cron job already up to date."
-  fi
-}
-
-# Generate the installer script to install Lynis from the official tarball and verify the GPG signature
-create_installer() {
-  local installer_location="$1"
-
-  cat << 'EOF' > "${installer_location}"
-#!/usr/bin/env bash
-
 # Cleans up old versions of Lynis
 cleanup_old_lynis() {
   local lynis_dir="$1"
@@ -56,9 +21,9 @@ download_lynis() {
   local lynis_tarball="$1"
   local lynis_tarball_url="$2"
   local download_path="$3"
-  echo "Downloading Lynis version..."
 
-  echo "Downloading Lynis version ${lynis_version}..."
+  echo "Downloading Lynis from ${lynis_tarball}..."
+
   wget -q "${lynis_tarball_url}" -O "${download_path}/${lynis_tarball}" || {
                                                                              echo "Failed to download Lynis tarball"
                                                                                                                       exit 1
@@ -141,35 +106,12 @@ compare_fingerprint_with_dns() {
 
 # Sets the trust level of the GPG key
 set_gpg_key_trust() {
+  # Set the trust level of the GPG key to "ultimate/5" without user interaction to avoid the prompt during the Lynis installation
   echo -e "5\ny\n" | gpg --command-fd 0 --edit-key "CISOfy software signing" trust
 }
 
-#######################################
-# Links the Lynis binary to /usr/local/bin
-# Arguments:
-#   1
-#######################################
-link_lynis_tar_binary() {
-  local lynis_dir="$1"
-  echo "Linking Lynis binary..."
 
-  # Remove the old symlink if it exists and create a new one
-  if [[ -f /usr/local/bin/lynis ]]; then
-    unlink /usr/local/bin/lynis
-    ln -s "${lynis_dir}/lynis/lynis" /usr/local/bin/lynis
-  else
-    ln -s "${lynis_dir}/lynis/lynis" /usr/local/bin/lynis
-  fi
-
-}
-
-#######################################
 # Add a timestamp to the log message and print it to stdout and the log file
-# Globals:
-#   None
-# Arguments:
-#   1
-#######################################
 log_message() {
     local log_file="/var/log/lynis.log"
     local date
@@ -177,15 +119,7 @@ log_message() {
     echo "[${date}] $1" | tee -a "${log_file}"
 }
 
-#######################################
 # Sends an email
-# Arguments:
-#   1
-#   2
-#   3
-# Returns:
-#   1 ...
-#######################################
 send_email() {
   local subject="$1"
   local content="$2"
@@ -213,11 +147,7 @@ send_email() {
   fi
 }
 
-#######################################
 # Controls script flow for installing Lynis
-# Arguments:
-#  None
-#######################################
 lynis_installer() {
   local lynis_version="3.0.9"
   local lynis_dir="/usr/local"
@@ -242,7 +172,6 @@ lynis_installer() {
   verify_signature "${lynis_dir}/lynis-${lynis_version}.tar.gz" "${lynis_dir}/lynis-${lynis_version}.tar.gz.asc"
   compare_fingerprint_with_dns "${fingerprint}"
   set_gpg_key_trust
-  link_lynis_tar_binary "${lynis_dir}"
 
   # Ensure the Lynis script is r/w/x by root only
   local lynis_executable_path="${lynis_dir}/lynis/lynis"
@@ -271,36 +200,9 @@ lynis_installer() {
   send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.neurogames@gmail.com"
 }
 
-#######################################
 # Main function to control script flow
-# Arguments:
-#  None
-#######################################
 main() {
   lynis_installer
-}
-
-main
-EOF
-
-  chmod 700 "${installer_location}"
-
-  # Source the newly created installer script
-  # shellcheck source=./${installer_location}
-  . "${installer_location}"
-}
-
-# Main function to control script flow
-main() {
-  validate_root
-
-  local lynis_script_path="/usr/local/bin/lynis_installer.sh"
-
-  # Dynamically generate the installer
-  create_installer "${lynis_script_path}"
-
-  # Update the cron job
-  update_cron_job "${lynis_script_path}" "/var/log/lynis_cron.log"
 }
 
 main "$@"

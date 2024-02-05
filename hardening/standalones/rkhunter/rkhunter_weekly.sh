@@ -1,39 +1,39 @@
 #!/usr/bin/env bash
 
-# Checks whether the script is run as root
-check_for_root() {
+# Log messages with appropriate prefixes
+system_log() {
+  local log_type="$1"
+  local message="$2"
+  local log_file="$3"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ${log_type}: ${message}" | tee -a "${log_file}"
+}
+
+# Checks if the script is being run as root (used for apt)
+check_root() {
   if [[ ${EUID} -ne 0 ]]; then
-    echo "This script must be run as root."
+    echo "Please run as root"
     exit 1
   fi
 }
 
-# Checks whether a command is executable
-check_executability() {
+# Ensure command can execute
+ensure_command_is_executable() {
   local command="$1"
   if ! [[ -x "$(command -v "${command}")" ]]; then
-    log_message "Error: ${command} not found or not executable."
+    system_log "ERROR" "${command} not found or not executable." "${log_file}"
     exit 1
   fi
 }
 
-# Create a file if it doesn't exist
+# Ensure that a file exists
 create_file_if_not_exists() {
   local file="$1"
-  if ! [[ -f ${file}   ]]; then
-    touch "${file}"
-    if ! [[ -f ${file}   ]]; then
-      log_message "Error: Failed to create file ${file}."
+  if [[ ! -f ${file} ]]; then
+    touch "${file}" || {
+      system_log "ERROR" "Unable to create file: ${file}" "${log_file}"
       exit 1
-    fi
+    }
   fi
-}
-
-# Add a timestamp to the log message and print it to stdout and the log file
-log_message() {
-    local date
-    date=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${date}] $1" | tee -a "${log_file}"
 }
 
 # Send an email with the given subject and content to the given recipient
@@ -48,14 +48,14 @@ send_email() {
   hostname=$(hostname)
 
   if [[ -z ${recipient} ]]; then
-    log_message "Error: Email recipient not specified."
+    system_log "ERROR" "Email recipient not specified." "${log_file}"
     return 1
   fi
 
   if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${recipient}\n\n${content}" | ${mail_tool} -f "${recipient}" -t "${recipient}"; then
-    log_message "Error: Failed to send email."
+    system_log "ERROR" "Failed to send email." "${log_file}"
   else
-    log_message "Email sent: ${subject}"
+    system_log "INFO" "Email sent: ${subject}" "${log_file}"
   fi
 }
 
@@ -68,22 +68,22 @@ check_for_web_tools() {
       return 0
     fi
   done
-  log_message "Error: No tool to download rkhunter updates was found. Please install wget, curl, (e)links or lynx."
+  echo "Error: No tool to download rkhunter updates was found. Please install wget, curl, (e)links or lynx."
   return 1
 }
 
 # Handle rkhunter database updates
 handle_updates() {
-  local rkhunter_path="$1"
+  local rkhunter="$1"
   local recipient="$2"
   local report_file="$3"
 
   check_for_web_tools || exit 1
 
   if [[ ${DB_UPDATE_EMAIL} =~ [YyTt]   ]]; then
-    log_message "Weekly rkhunter database update started"
-    "${rkhunter_path}" --versioncheck --nocolors --appendlog > "${report_file}" 2>&1
-    "${rkhunter_path}" --update --nocolors --appendlog > "${report_file}" 2>&1
+    system_log "INFO" "Weekly rkhunter database update started" "${log_file}"
+    "${rkhunter}" --versioncheck --nocolors --appendlog > "${report_file}" 2>&1
+    "${rkhunter}" --update --nocolors --appendlog > "${report_file}" 2>&1
 
     local report_content
     local hostname
@@ -98,33 +98,35 @@ handle_updates() {
     subject="[rkhunter] - [${hostname}] - [Weekly Report] - [$(date '+%Y-%m-%d %H:%M')]"
 
     send_email "${subject}" "${report_content}" "${recipient}"
+    system_log "INFO" "Weekly report email sent." "${log_file}"
   else
-    log_message "DB_UPDATE_EMAIL is not set to true. Exiting."
+    system_log "ERROR" "DB_UPDATE_EMAIL is not set to true. Exiting." "${log_file}"
     exit 0
   fi
 }
 
 # Main function
 main() {
-  check_for_root
+  check_root
 
+  # Source config
   . /etc/default/rkhunter
 
   log_file="/var/log/rkhunter.log"
   report_file="/tmp/rkhunter_weekly_report.log"
 
-  local rkhunter_path
-  rkhunter_path=$(command -v rkhunter)
+  local rkhunter="rkhunter"
+  local mta="sendmail"
 
   # Check if rkhunter is installed and executable
-  check_executability "${rkhunter_path}"
-  check_executability "sendmail"
+  ensure_command_is_executable "${rkhunter}"
+  ensure_command_is_executable "${mta}"
 
   create_file_if_not_exists "${log_file}"
   create_file_if_not_exists "${report_file}"
 
   # Run handle_updates if configured to do so in cron
-  [[ ${CRON_DB_UPDATE} =~ [YyTt] ]] && handle_updates "${rkhunter_path}" "${REPORT_EMAIL}" "${report_file}"
+  [[ ${CRON_DB_UPDATE} =~ [YyTt] ]] && handle_updates "${rkhunter}" "${REPORT_EMAIL}" "${report_file}"
 }
 
 main "$@"
