@@ -2,11 +2,7 @@
 
 set -euo pipefail
 
-#######################################
 # Utility function to check if a command exists.
-# Arguments:
-#   1. cmd
-#######################################
 check_command() {
   local cmd="$1"
   if ! command -v "${cmd}" &> /dev/null; then
@@ -15,11 +11,7 @@ check_command() {
   fi
 }
 
-#######################################
 # Encrypts the SMTP credentials file for security.
-# Arguments:
-#   1. credentials_file
-#######################################
 encrypt_credentials() {
   local credentials_file="$1"
   check_command gpg
@@ -29,14 +21,7 @@ encrypt_credentials() {
   rm -f "${credentials_file}" # Remove plaintext file after encryption
 }
 
-#######################################
 # Reads and decrypts SMTP credentials from an encrypted file.
-# Globals:
-#   smtp_password
-#   smtp_user
-# Arguments:
-#   1. credentials_file
-#######################################
 decrypt_and_read_credentials() {
   local credentials_file="$1"
   local encrypted_file="${credentials_file}.gpg"
@@ -53,15 +38,8 @@ decrypt_and_read_credentials() {
   fi
 }
 
-#######################################
 # Reads SMTP credentials from an external file or prompts the user.
 # Saves and encrypts the credentials if entered manually.
-# Globals:
-#   smtp_password
-#   smtp_user
-# Arguments:
-#   1. credentials_file
-#######################################
 read_smtp_credentials() {
   local credentials_file="$1"
 
@@ -94,13 +72,7 @@ read_smtp_credentials() {
 
 }
 
-#######################################
 # Updates a configuration setting in the Postfix main.cf file.
-# Arguments:
-#   1. setting_name: The name of the configuration setting (e.g., mailq_path, html_directory)
-#   2. setting_value: The value to set for the configuration (path or directory)
-#   3. main_cf: Path to the main.cf file
-#######################################
 update_postfix_config() {
   local setting_name="$1"
   local setting_value="$2"
@@ -121,11 +93,7 @@ update_postfix_config() {
   fi
 }
 
-#######################################
 # Checks if the script is run as root and exits if not.
-# Arguments:
-#  None
-#######################################
 check_root() {
   if [[ $(id -u) -ne 0 ]]; then
     echo "This script must be run as root."
@@ -133,11 +101,7 @@ check_root() {
   fi
 }
 
-#######################################
 # Installs necessary packages and removes sendmail.
-# Arguments:
-#  None
-#######################################
 install_packages() {
   apt --purge remove sendmail -y && apt install postfix libsasl2-modules -y
   if [[ $? -ne 0 ]]; then
@@ -146,11 +110,7 @@ install_packages() {
   fi
 }
 
-#######################################
 # Verifies if the postdrop user exists in the system.
-# Arguments:
-#  None
-#######################################
 verify_postdrop() {
   if ! grep -q postdrop /etc/group; then
     echo "Postdrop user does not exist. Exiting."
@@ -158,13 +118,7 @@ verify_postdrop() {
   fi
 }
 
-#######################################
 # Configures postfix with required settings.
-# Arguments:
-#   1. main_cf
-#   2. sasl_passwd
-#   3. ses_mta
-#######################################
 configure_postfix() {
   local main_cf="$1"
   local sasl_passwd="$2"
@@ -183,11 +137,7 @@ configure_postfix() {
     enable_aliases
 }
 
-#######################################
 # Configure aliases for root user
-# Arguments:
-#  None
-#######################################
 enable_aliases() {
   local aliases_file="/etc/aliases"
   local aliases_db="/etc/aliases.db"
@@ -203,11 +153,7 @@ enable_aliases() {
   fi
 }
 
-#######################################
 # Inserts the canonical sender configuration in main.cf to rewrite the sender address.
-# Arguments:
-#  None
-#######################################
 insert_sender_canonical() {
   local new_canonical_sender="yane.neurogames@gmail.com"
   local sender_canonical_config_string="sender_canonical_maps = static:${new_canonical_sender}"
@@ -216,11 +162,7 @@ insert_sender_canonical() {
   fi
 }
 
-#######################################
 # Starts postfix service if not already running.
-# Arguments:
-#  None
-#######################################
 start_postfix() {
   if ! systemctl is-active --quiet postfix; then
                                            echo "Starting Postfix service..."
@@ -228,27 +170,12 @@ start_postfix() {
   fi
 }
 
-#######################################
 # Clear SMTP credentials from memory
-# Globals:
-#   smtp_password
-#   smtp_user
-# Arguments:
-#  None
-#######################################
 clear_smtp_credentials() {
   unset smtp_user smtp_password
 }
 
-#######################################
 # Configures the SASL password file.
-# Globals:
-#   smtp_password
-#   smtp_user
-# Arguments:
-#   1
-#   2
-#######################################
 configure_sasl_passwd() {
   local sasl_passwd="$1"
   local ses_mta="$2"
@@ -260,33 +187,21 @@ configure_sasl_passwd() {
   postmap -v hash:"${sasl_passwd}"
 }
 
-#######################################
 # Enables and restarts postfix, and checks its status.
-# Arguments:
-#  None
-#######################################
 enable_and_restart_postfix() {
   systemctl enable postfix --quiet
   systemctl restart postfix --quiet
   systemctl status postfix --no-pager
 }
 
-#######################################
 # Backup configuration files.
-# Arguments:
-#   1. main_cf
-#######################################
 backup_configs() {
   local main_cf="$1"
   \cp -rf "${main_cf}" "${main_cf}.bak"
   echo "Backup of configuration files completed."
 }
 
-#######################################
 # Validate Postfix configuration.
-# Arguments:
-#  None
-#######################################
 validate_postfix_config() {
   echo "Validating Postfix configuration..."
   if ! postfix check; then
@@ -296,9 +211,7 @@ validate_postfix_config() {
   echo "Postfix configuration is valid."
 }
 
-#######################################
 # Main function to execute script tasks.
-#######################################
 main() {
   local backup=false
   local main_cf="/etc/postfix/main.cf"
