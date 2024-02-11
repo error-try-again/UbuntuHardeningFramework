@@ -42,6 +42,9 @@ send_email() {
   local content="$2"
   local recipient="$3"
 
+  local sender
+  sender="yane.karov@legendland.com.au"
+
   local mail_tool="sendmail"
 
   local hostname
@@ -52,7 +55,7 @@ send_email() {
     return 1
   fi
 
-  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${recipient}\n\n${content}" | ${mail_tool} -f "${recipient}" -t "${recipient}"; then
+  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${content}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
     system_log "ERROR" "Failed to send email." "${log_file}"
   else
     system_log "INFO" "Email sent: ${subject}" "${log_file}"

@@ -11,6 +11,9 @@ send_auditd_report() {
   # Set the recipient address where the report will be sent
   local recipient="$1"
 
+  local sender
+  sender="yane.karov@legendland.com.au"
+
   # Set the subject for the recipient
   local subject
   subject="[$(hostname)] - [Auditd Review Report] - [$(date +'%Y-%m-%d')]"
@@ -25,7 +28,7 @@ send_auditd_report() {
   # Check if the report contains relevant information
   if [[ -n ${report}   ]]; then
     # Send an recipient with the report using sendmail
-    if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${recipient}\n\n${report}" | ${mail_tool} -f "${recipient}" -t "${recipient}"; then
+    if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${report}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
       log "Error: Failed to send email."
     else
       log "Email sent: ${subject}"
@@ -40,8 +43,8 @@ send_auditd_report() {
 # Main function
 main() {
   log_file="/var/log/audit-report.log"
-  local recipient="yane.neurogames@gmail.com"
-  send_auditd_report "${recipient}"
+  local recipients="yane.neurogames@gmail.com,yane.karov@gmail.com"
+  send_auditd_report "${recipients}"
 }
 
 main "$@"

@@ -6,10 +6,12 @@ install_apt_packages() {
   apt update -y || { log "Failed to update package lists..."; exit 1; }
   local package
   for package in "${package_list[@]}"; do
-    if dpkg -l | grep -qw "$package"; then
+    if dpkg -l | grep -qw "${package}"; then
       log "${package} is already installed."
     else
-      if apt install -y "$package"; then
+      # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error when running in parallel with other apt commands
+      sleep 1
+      if apt install -y "${package}"; then
         log "Successfully installed ${package}."
       else
         log "Failed to install ${package}..."

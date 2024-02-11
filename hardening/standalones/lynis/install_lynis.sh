@@ -110,7 +110,6 @@ set_gpg_key_trust() {
   echo -e "5\ny\n" | gpg --command-fd 0 --edit-key "CISOfy software signing" trust
 }
 
-
 # Add a timestamp to the log message and print it to stdout and the log file
 log_message() {
     local log_file="/var/log/lynis.log"
@@ -124,6 +123,9 @@ send_email() {
   local subject="$1"
   local content="$2"
   local recipient="$3"
+
+  local sender
+  sender="yane.karov@legendland.com.au"
 
   local mail_tool="sendmail"
 
@@ -140,7 +142,7 @@ send_email() {
     return 1
   fi
 
-  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${recipient}\n\n${content}" | ${mail_tool} -f "${recipient}" -t "${recipient}"; then
+  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${content}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
     log_message "Error: Failed to send email."
   else
     log_message "Email sent: ${subject}"
@@ -191,13 +193,13 @@ lynis_installer() {
 
   # Run the Lynis audit and pentest
   ./lynis audit system --quiet
-  #  ./lynis --pentest --quiet
+  ./lynis --pentest --quiet
   #  ./lynis --forensics --quiet
   #  ./lynis --devops --quiet
   #  ./lynis --developer --quiet
 
   # Send the audit report via email
-  send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.neurogames@gmail.com"
+  send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.neurogames@gmail.com,yane.karov@gmail.com"
 }
 
 # Main function to control script flow

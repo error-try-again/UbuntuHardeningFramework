@@ -155,7 +155,7 @@ enable_aliases() {
 
 # Inserts the canonical sender configuration in main.cf to rewrite the sender address.
 insert_sender_canonical() {
-  local new_canonical_sender="yane.neurogames@gmail.com"
+  local new_canonical_sender="yane.karov@legendland.com.au"
   local sender_canonical_config_string="sender_canonical_maps = static:${new_canonical_sender}"
   if ! grep -q "${sender_canonical_config_string}" /etc/postfix/main.cf; then
     echo "${sender_canonical_config_string}" >> /etc/postfix/main.cf
