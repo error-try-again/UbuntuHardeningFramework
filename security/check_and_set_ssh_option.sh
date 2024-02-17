@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
  # Check and set SSH option
 function check_and_set_ssh_option() {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
  # Configure SSH to use MFA
 function configure_mfa() {

@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-  # helper function to run a command on the remote server
-  function run_remote_command() {
-      ssh -i "${ssh_local_pem}" "${remote_user}@${remote_host}"
+# helper function to run a command on the remote server
+function run_remote_command() {
+    ssh -i "${ssh_local_pem}" "${remote_user}@${remote_host}"
 }
 
  # helper function to skip or exit the script

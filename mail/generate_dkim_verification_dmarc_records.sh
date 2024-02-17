@@ -15,7 +15,7 @@ generate_private_key() {
   local size=$2
   local format=$3
   echo "Generating RSA private key of size ${size} bits in ${format} format..."
-  if [[ "${format}" = "pkcs8" ]]; then
+  if [[ ${format} == "pkcs8"  ]]; then
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:"$size" -outform PEM -out "${file}.pem"
   else  # Default to PKCS #1 if not specified or specified as pkcs1
     openssl genrsa -out "${file}.pem" "${size}"
@@ -40,19 +40,38 @@ format_public_key_for_dns() {
   echo "\"v=DKIM1; k=rsa; p=${pubkey}\""
 }
 
+# Prepare the DMARC record for DNS TXT record inclusion
+format_dmarc_record_for_dns() {
+  local domain=$1
+
+  # DMARC record with quarantine policy, including both aggregate and forensic reporting.
+  # Provides options for SPF and DKIM alignment modes, and specifies the failure reporting condition.
+  # Note: Adjust the 'pct' value to increase or decrease the percentage of messages subjected to the 'quarantine' policy based on your monitoring results and comfort level.
+  # The 'fo=1' option means forensic reports are generated for any failures, providing detailed insights into issues.
+  # 'adkim=r' and 'aspf=r' set relaxed alignment for DKIM and SPF, reducing false positives without significantly compromising security.
+  echo "v=DMARC1; p=quarantine; pct=25; rua=mailto:dmarcreports@${domain}; ruf=mailto:forensic@${domain}; fo=1; adkim=r; aspf=r; rf=afrf"
+}
+
 # Output the DNS TXT record in a user-friendly format
 output_dns_record() {
   local selector=$1
   local domain=$2
-  local dns_record_value=$3
+  local dkim_record_value=$3
+  local dmarc_record_value=$4
 
   echo "########################################################"
   echo "Enter the following DNS record with your DNS provider:"
   echo "########################################################"
+  echo "DKIM RECORD:"
   echo "Type: TXT"
   echo "Domain: ${selector}._domainkey.${domain}"
-  echo "Value: ${dns_record_value}"
+  echo "Value: ${dkim_record_value}"
   echo "TTL: 86400 (1 day recommended)"
+  echo "########################################################"
+  echo "DMARC RECORD:"
+  echo "Type: TXT"
+  echo "Domain: _dmarc.${domain}"
+  echo "Value: ${dmarc_record_value}"
   echo "########################################################"
 }
 
@@ -64,8 +83,8 @@ main() {
   local key_format=${2:-pkcs1}  # Default to PKCS #1, can be overridden with script argument
 
   # Validate key size
-  if [[ ${key_size} -lt 1024 || ${key_size} -gt 2048     ]]; then
-    echo "Key size must be between 1024 and 2048 bits."
+  if [[ ${key_size} -lt 2048 ]]; then
+    echo "For enhanced security, a key size of 2048 bits or higher is recommended."
     exit 1
   fi
 
@@ -76,10 +95,11 @@ main() {
   generate_private_key "${private_key_file}" "${key_size}" "${key_format}"
   generate_public_key "${private_key_file}.pem" "${public_key_file}"
 
-  # Format public key and output DNS record
-  local dns_record_value
-  dns_record_value=$(format_public_key_for_dns "${public_key_file}.cleaned")
-  output_dns_record "${selector}" "${domain}" "${dns_record_value}"
+  # Format the public key and DMARC record for DNS
+  local dkim_record_value dmarc_record_value
+  dkim_record_value=$(format_public_key_for_dns "${public_key_file}.cleaned")
+  dmarc_record_value=$(format_dmarc_record_for_dns "${domain}")
+  output_dns_record "${selector}" "${domain}" "${dkim_record_value}" "${dmarc_record_value}"
 }
 
 # Run the main function with all provided arguments

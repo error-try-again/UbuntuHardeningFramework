@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
  # Install and configure SELinux
 function install_selinux() {

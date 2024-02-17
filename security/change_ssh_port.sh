@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
  # Change the default SSH port
 function change_ssh_port() {

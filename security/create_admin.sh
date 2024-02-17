@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
  # Create a new admin user with sudo privileges
 function create_admin() {
