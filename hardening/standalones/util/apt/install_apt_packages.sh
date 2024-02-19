@@ -2,7 +2,7 @@
 
 # Installs a list of apt packages
 install_apt_packages() {
-  local package_list=($@) # Capture all arguments as an array of packages
+  local package_list=("${@}") # Capture all arguments as an array of packages
   apt update -y || { log "Failed to update package lists..."; exit 1; }
   local package
   for package in "${package_list[@]}"; do
