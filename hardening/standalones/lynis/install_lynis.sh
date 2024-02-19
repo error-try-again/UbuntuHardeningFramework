@@ -190,13 +190,12 @@ lynis_installer() {
   cd "${lynis_dir}/lynis" && ls -la
 
   ./lynis show version
-
   # Run the Lynis audit and pentest
   ./lynis audit system --quiet
   ./lynis --pentest --quiet
-  #  ./lynis --forensics --quiet
-  #  ./lynis --devops --quiet
-  #  ./lynis --developer --quiet
+  ./lynis --forensics --quiet
+  ./lynis --devops --quiet
+  ./lynis --developer --quiet
 
   # Send the audit report via email
   send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.neurogames@gmail.com,yane.karov@gmail.com"
