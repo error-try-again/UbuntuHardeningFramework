@@ -43,7 +43,9 @@ send_auditd_report() {
 # Main function
 main() {
   log_file="/var/log/audit-report.log"
-  local recipients="yane.neurogames@gmail.com,yane.karov@gmail.com"
+  # Add Comma separated email addresses of the recipients to the variable
+  # Example: "yane.neurogames@gmail.com,example@gmail.com"
+  local recipients="yane.neurogames@gmail.com"
   send_auditd_report "${recipients}"
 }
 

@@ -198,7 +198,7 @@ lynis_installer() {
   ./lynis --developer --quiet
 
   # Send the audit report via email
-  send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.neurogames@gmail.com,yane.karov@gmail.com"
+  send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.neurogames@gmail.com"
 }
 
 # Main function to control script flow

@@ -11,7 +11,7 @@ create_jail_config() {
     return 1
   fi
 
-    # Create a custom jail configuration for SSH if it doesn't exist
+    # Aggressive jail configuration for SSH
     cat <<- EOF > "${custom_jail}"
         [sshd]
         enabled = true
@@ -19,13 +19,14 @@ create_jail_config() {
         filter = sshd
         logpath = /var/log/auth.log
         maxretry = 3
-        findtime = 600
-        bantime = 3600
+        findtime = 300
+        bantime = 86400
         ignoreip = ${ip_list}
-        destemail = yane.neurogames@gmail.com, yane.karov@gmail.com
+        destemail = yane.neurogames@gmail.com
         sender = yane.karov@legendland.com.au
         sendername = Fail2Ban
         mta = sendmail
         action = %(action_mwl)s
+        bantime.increment = true
 EOF
 }

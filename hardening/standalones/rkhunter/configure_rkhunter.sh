@@ -33,7 +33,7 @@ configure_rkhunter() {
     # Modify /etc/default/rkhunter to enable daily runs and database updates
     sed -i -e 's|^[#]*[[:space:]]*CRON_DAILY_RUN=.*|CRON_DAILY_RUN="true"|' /etc/default/rkhunter # enable daily runs
     sed -i -e 's|^[#]*[[:space:]]*CRON_DB_UPDATE=.*|CRON_DB_UPDATE="true"|' /etc/default/rkhunter # enable database updates
-    sed -i -e 's|^[#]*[[:space:]]*REPORT_EMAIL=.*|REPORT_EMAIL=yane.neurogames@gmail.com,yane.karov@gmail.com|' /etc/default/rkhunter # set the email address to send reports to
+    sed -i -e 's|^[#]*[[:space:]]*REPORT_EMAIL=.*|REPORT_EMAIL=yane.neurogames@gmail.com|' /etc/default/rkhunter # set the email address to send reports to
     sed -i -e 's|^[#]*[[:space:]]*DB_UPDATE_EMAIL=.*|DB_UPDATE_EMAIL="true"|' /etc/default/rkhunter # enable database update emails
     sed -i -e 's|^[#]*[[:space:]]*APT_AUTOGEN=.*|APT_AUTOGEN="true"|' /etc/default/rkhunter # enable automatic updates
 

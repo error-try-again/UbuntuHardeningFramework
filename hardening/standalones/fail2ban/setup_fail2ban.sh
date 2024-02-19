@@ -26,6 +26,7 @@ main_fail2ban_setup() {
 
   # Create a custom Fail2ban jail configuration for SSH protection
   create_jail_config "${custom_jail}" "${ip_list}"
+
   # Restart Fail2ban service to apply the new configuration
   restart_service "fail2ban"
 }
