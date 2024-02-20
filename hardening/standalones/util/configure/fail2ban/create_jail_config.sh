@@ -22,7 +22,7 @@ create_jail_config() {
         findtime = 300
         bantime = 86400
         ignoreip = ${ip_list}
-        destemail = yane.neurogames@gmail.com
+        destemail = yane.karov@gmail.com
         sender = yane.karov@legendland.com.au
         sendername = Fail2Ban
         mta = sendmail

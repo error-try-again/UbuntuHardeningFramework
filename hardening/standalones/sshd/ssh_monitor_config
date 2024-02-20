@@ -1,5 +1,5 @@
       log_file="/var/log/ssh_monitor.log"
       error_log_file="/var/log/ssh_monitor_error.log"
-      alert_email="yane.neurogames@gmail.com"
+      alert_email="yane.karov@gmail.com"
       alert_threshold="1"
       mail_subject="SSH Monitor Alert"

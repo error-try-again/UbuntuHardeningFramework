@@ -110,7 +110,7 @@ initialize_variables() {
   last_check_file="/tmp/last_ssh_check"
 
   error_log_file="/var/log/ssh_monitor_error.log"
-  default_alert_email="yane.neurogames@gmail.com"
+  default_alert_email="yane.karov@gmail.com"
   default_alert_threshold=1
   default_mail_subject="SSH Monitor Alert"
 
