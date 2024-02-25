@@ -72,10 +72,10 @@ update_config() {
   local file="$3"
 
   # Check if the key exists and is not commented out, then replace or append the value.
-  if grep -qE "^#*$key " "$file"; then
-    sed -i "/^#*$key /c\\$key $value" "$file"
+  if grep -qE "^#*${key} " "${file}"; then
+    sed -i "/^#*${key} /c\\${key} ${value}" "${file}"
   else
-    echo "$key $value" >> "$file"
+    echo "${key} ${value}" >> "${file}"
   fi
 }
 
@@ -219,6 +219,10 @@ main() {
         ;;
       :)
         echo "Option -${OPTARG} requires an argument." >&2
+        exit 1
+        ;;
+      *)
+        print_usage
         exit 1
         ;;
     esac

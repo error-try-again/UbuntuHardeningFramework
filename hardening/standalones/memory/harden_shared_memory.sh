@@ -24,11 +24,12 @@ backup_fstab() {
 
 # Updates /etc/fstab with correct options for /run/shm
 update_fstab() {
+  local fstab_entry="$1"
   if grep -qE "^tmpfs /run/shm tmpfs" /etc/fstab; then
     echo "Shared memory already secured, checking options..."
-    if ! grep -qE "^$fstab_entry" /etc/fstab; then
+    if ! grep -qE "^${fstab_entry}" /etc/fstab; then
       echo "Updating /etc/fstab with correct options..."
-      sed -i "/^tmpfs \/run\/shm tmpfs/c\\$fstab_entry" /etc/fstab && echo "Entry updated." || {
+      sed -i "/^tmpfs \/run\/shm tmpfs/c\\${fstab_entry}" /etc/fstab && echo "Entry updated." || {
         echo "Failed to update fstab." >&2
         exit 1
       }
@@ -37,7 +38,7 @@ update_fstab() {
     fi
   else
     echo "Adding new entry to /etc/fstab..."
-    echo "$fstab_entry" >> /etc/fstab && echo "Entry added successfully." || {
+    echo "${fstab_entry}" >> /etc/fstab && echo "Entry added successfully." || {
       echo "Failed to add entry to /etc/fstab." >&2
       exit 1
     }
@@ -57,6 +58,7 @@ remount_shm() {
 
 # Validates that /run/shm is secured correctly
 validate_secure_shared_memory() {
+  local fstab_entry="$1"
   echo "Validating shared memory security..."
 
   if [[ ! -f /etc/fstab.backup ]]; then
@@ -64,7 +66,7 @@ validate_secure_shared_memory() {
     exit 1
   fi
 
-  if ! grep -qE "^$fstab_entry" /etc/fstab; then
+  if ! grep -qE "^${fstab_entry}" /etc/fstab; then
     echo "fstab entry incorrect or missing." >&2
     return 1
   fi
@@ -73,8 +75,8 @@ validate_secure_shared_memory() {
   mount_options=$(mount | grep ' /run/shm ' | awk '{print $6}' | tr -d '()')
   local option
   for option in noexec nosuid nodev; do
-    if [[ $mount_options != *"$option"* ]]; then
-      echo "/run/shm does not have $option option set." >&2
+    if [[ ${mount_options} != *"${option}"* ]]; then
+      echo "/run/.shm does not have ${option} option set." >&2
       return 1
     fi
   done
@@ -87,9 +89,9 @@ main() {
   fstab_entry="tmpfs /run/shm tmpfs defaults,noexec,nosuid,nodev 0 0"
   check_root
   backup_fstab
-  update_fstab
+  update_fstab "${fstab_entry}"
   remount_shm
-  validate_secure_shared_memory
+  validate_secure_shared_memory "${fstab_entry}"
 }
 
 main "$@"

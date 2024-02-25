@@ -12,12 +12,12 @@ harden_network() {
   local backup_file
   backup_file="/etc/sysctl.conf.backup.$(date +%Y%m%d%H%M%S)"
   echo "Creating backup of current sysctl configuration..."
-  cp /etc/sysctl.conf "$backup_file" && echo "Backup saved as $backup_file" || { echo "Backup failed. Exiting."; exit 1; }
+  cp /etc/sysctl.conf "${backup_file}" && echo "Backup saved as ${backup_file}" || { echo "Backup failed. Exiting."; exit 1; }
 
   # Specifies the file where hardening configurations will be written.
   # This approach keeps our custom configurations separate for easy management.
   local hardening_config="/etc/sysctl.d/99-hardening.conf"
-  echo "Applying hardening configurations to $hardening_config..."
+  echo "Applying hardening configurations to ${hardening_config}..."
 
   {
     echo "# Custom hardening network settings"
@@ -87,7 +87,7 @@ harden_network() {
     # Limit SYN backlog and retries to mitigate SYN flood attacks.
     echo "net.ipv4.tcp_max_syn_backlog=2048"
     echo "net.ipv4.tcp_synack_retries=2"
-  } > "$hardening_config"
+  } > "${hardening_config}"
 
   # Apply the new sysctl parameters from the configuration file.
   echo "Applying sysctl parameters..."

@@ -13,8 +13,8 @@ check_required_commands() {
   local missing_commands=0
   local cmd
   for cmd in apt-get systemctl aa-enforce auditctl; do
-    if ! command -v "$cmd" &> /dev/null; then
-      echo "Required command $cmd is not available."
+    if ! command -v "${cmd}" &> /dev/null; then
+      echo "Required command ${cmd} is not available."
       ((missing_commands++))
     fi
   done
