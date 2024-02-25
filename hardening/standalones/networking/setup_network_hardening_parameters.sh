@@ -4,7 +4,7 @@
 # backup of existing configurations, application of strict networking rules,
 # and adjustments to system parameters to mitigate various network-based attacks.
 
-harden_network() {
+main_network_hardening_parameters_setup() {
   echo "Starting network configuration hardening process..."
 
   # Create a backup of the existing sysctl configuration with a timestamp
@@ -95,6 +95,3 @@ harden_network() {
 
   echo "Network configuration hardening completed."
 }
-
-# Execute the hardening function.
-harden_network

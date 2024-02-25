@@ -84,8 +84,8 @@ validate_secure_shared_memory() {
   echo "Shared memory is secured correctly."
 }
 
-# Main function
-main() {
+# Main function to set up shared memory hardening
+setup_shared_memory_hardening() {
   fstab_entry="tmpfs /run/shm tmpfs defaults,noexec,nosuid,nodev 0 0"
   check_root
   backup_fstab
@@ -93,5 +93,3 @@ main() {
   remount_shm
   validate_secure_shared_memory "${fstab_entry}"
 }
-
-main "$@"

@@ -2,7 +2,6 @@
 
 # Source utility functions
 source_utility_functions() {
-  source standalones/upgrades/setup_auto_upgrades.sh
   source standalones/util/general/check_root.sh
   source standalones/util/general/ensure_file_is_writable.sh
   source standalones/util/general/create_file_if_not_exists.sh
@@ -29,6 +28,12 @@ source_utility_functions() {
   source standalones/auditd/setup_auditd.sh
   source standalones/lynis/setup_lynis.sh
   source standalones/fail2ban/setup_fail2ban.sh
+  source standalones/upgrades/setup_auto_upgrades.sh
+  source standalones/firewall/setup_firewall.sh
+  source standalones/memory/setup_shared_memory_hardening.sh
+  source standalones/networking/setup_network_hardening_parameters.sh
+  source standalones/apparmor/setup_apparmor.sh
+
 }
 
 # Main functions
@@ -43,6 +48,10 @@ main() {
   main_auto_upgrades_setup
   main_rkhunter_setup
   main_lynis_setup
+  main_firewall_setup
+  main_shared_memory_hardening_setup
+  main_network_hardening_parameters_setup
+  main_apparmor_setup
 
 }
 
