@@ -35,7 +35,7 @@ source_utility_functions() {
 main() {
   source_utility_functions
 
-  # Setup the SSHD IDS
+  # Set up the SSHD IDS
   source standalones/sshd/setup_ssh_intrusion_detection.sh install
 
   main_auditd_setup

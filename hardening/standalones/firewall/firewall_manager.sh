@@ -119,7 +119,7 @@ backup_ufw_rules() {
   # Handle the applications.d directory
   if [[ -d /etc/ufw/applications.d ]]; then
     cp -R /etc/ufw/applications.d "${backup_dir}" || {
-      log_message "Failed to backup /etc/ufw/applications.d."
+      log_message "Failed to back up /etc/ufw/applications.d."
       return 1
     }
   else

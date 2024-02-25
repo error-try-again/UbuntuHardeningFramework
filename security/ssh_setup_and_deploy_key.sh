@@ -8,7 +8,7 @@ generate_key_pair() {
   local server="$1"
   local user="$2"
   local email="$3"
-  ssh-keygen -t ed25519 -f "${HOME}/.ssh/${server}-${user}" -q -N "" -C "${email}"
+    ssh-keygen -t ed25519 -f "${HOME}/.ssh/${server}-${user}" -q -N "" -C "${email}"
 }
 
 # Add the server's public key to the user's known_hosts file.

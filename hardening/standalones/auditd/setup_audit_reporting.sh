@@ -6,7 +6,7 @@ log() {
   echo "$(date +'%Y-%m-%d %H:%M:%S') - ${message}" >> "${log_file}"
 }
 
-# Send an recipient with the audit report using sendmail
+# Send a recipient with the audit report using sendmail
 send_auditd_report() {
   # Set the recipient address where the report will be sent
   local recipient="$1"
@@ -26,8 +26,8 @@ send_auditd_report() {
   mail_tool="sendmail"
 
   # Check if the report contains relevant information
-  if [[ -n ${report}   ]]; then
-    # Send an recipient with the report using sendmail
+  if [[ -n ${report} ]]; then
+    # Send a recipient with the report using sendmail
     if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${report}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
       log "Error: Failed to send email."
     else

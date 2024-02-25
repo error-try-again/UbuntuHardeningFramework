@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 
- # Configure SSH to use MFA
-function configure_mfa() {
-  echo "Configuring SSH to use MFA..."
-  check_and_set_ssh_option "ChallengeResponseAuthentication" "yes"
-  check_and_set_ssh_option "UsePAM" "yes"
+# Configure SSH to use MFA
+configure_mfa() {
 
   # Comment out the '@include common-auth' line in /etc/pam.d/sshd
   if ! run_remote_command "sudo -S sed -i '/^@include common-auth/s/^/#/' /etc/pam.d/sshd"; then
@@ -29,8 +26,8 @@ function configure_mfa() {
   prompt_user_for_actions
 }
 
- # Enable MFA for the new admin user
-function enable_mfa_for_admin_user() {
+# Enable MFA for the new admin user
+enable_mfa_for_admin_user() {
   echo "Enabling MFA..."
 
   # Run google-authenticator for the new admin user
@@ -48,8 +45,8 @@ function enable_mfa_for_admin_user() {
   echo "MFA enabled."
 }
 
- # Setup MFA for SSH login
-function setup_mfa() {
+# Setup MFA for SSH login
+setup_mfa() {
   # Check if MFA is already installed
   if run_remote_command "dpkg-query --show libpam-google-authenticator"; then
     echo "MFA is already installed."
