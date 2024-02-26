@@ -12,7 +12,7 @@ send_auditd_report() {
   local recipient="$1"
 
   local sender
-  sender="void@legendland.com.au"
+  sender="yane.karov@legendland.com.au"
 
   # Set the subject for the recipient
   local subject
