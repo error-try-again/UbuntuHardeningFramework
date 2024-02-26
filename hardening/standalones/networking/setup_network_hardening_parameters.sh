@@ -36,6 +36,7 @@ main_network_hardening_parameters_setup() {
     # Disable ICMP redirects to prevent misrouting and MITM attacks.
     echo "net.ipv4.conf.all.accept_redirects=0"
     echo "net.ipv4.conf.default.accept_redirects=0"
+
     echo "net.ipv4.conf.all.secure_redirects=1"
     echo "net.ipv4.conf.default.secure_redirects=1"
 
@@ -47,13 +48,6 @@ main_network_hardening_parameters_setup() {
 
     # Use TCP SYN cookies to protect against SYN flood attacks.
     echo "net.ipv4.tcp_syncookies=1"
-
-    # IPv6 specific settings to disable redirects and autoconfiguration
-    # if IPv6 is not used. This helps in simplifying network security posture.
-    echo "net.ipv6.conf.all.accept_redirects=0"
-    echo "net.ipv6.conf.default.accept_redirects=0"
-    echo "net.ipv6.conf.all.disable_ipv6=1"
-    echo "net.ipv6.conf.default.disable_ipv6=1"
 
     # Log packets with impossible source addresses to detect spoofing.
     echo "net.ipv4.conf.all.log_martians=1"
@@ -78,15 +72,25 @@ main_network_hardening_parameters_setup() {
     echo "net.ipv4.tcp_rfc1337=1"
     echo "net.ipv4.conf.all.drop_gratuitous_arp=1"
 
-    # Disable IPv6 features that may not be needed and could pose security risks.
-    echo "net.ipv6.conf.all.accept_ra=0"
-    echo "net.ipv6.conf.default.accept_ra=0"
-    echo "net.ipv6.conf.all.proxy_ndp=0"
-    echo "net.ipv6.conf.default.proxy_ndp=0"
-
     # Limit SYN backlog and retries to mitigate SYN flood attacks.
     echo "net.ipv4.tcp_max_syn_backlog=2048"
     echo "net.ipv4.tcp_synack_retries=2"
+
+    # IPv6 specific settings to disable redirects and autoconfiguration
+    # if IPv6 is not used. This helps in simplifying network security posture.
+    echo "net.ipv6.conf.all.accept_redirects=0"
+    echo "net.ipv6.conf.default.accept_redirects=0"
+
+    echo "net.ipv6.conf.all.disable_ipv6=1"
+    echo "net.ipv6.conf.default.disable_ipv6=1"
+
+    # Disable IPv6 features that may not be needed and could pose security risks.
+    echo "net.ipv6.conf.all.accept_ra=0"
+    echo "net.ipv6.conf.default.accept_ra=0"
+
+    echo "net.ipv6.conf.all.proxy_ndp=0"
+    echo "net.ipv6.conf.default.proxy_ndp=0"
+
   } > "${hardening_config}"
 
   # Apply the new sysctl parameters from the configuration file.

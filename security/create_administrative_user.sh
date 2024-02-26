@@ -34,7 +34,7 @@ configure_password_policy() {
 
   # Configure PAM to enforce the password policy with obscure checks
   local pam_pwquality_line="password requisite pam_pwquality.so retry=3 minlen=24 dcredit=-1 ucredit=-1 ocredit=-1 lcredit=-1"
-  sudo sed -i "/^password.*pam_unix.so/ s/$/ $pam_pwquality_line/" /etc/pam.d/common-password
+  sudo sed -i "/^password.*pam_unix.so/ s/$/ ${pam_pwquality_line}/" /etc/pam.d/common-password
 
   echo "Password policy configured."
 }

@@ -22,7 +22,7 @@ enable_strict_policy() {
     info "Enabling default deny policy and allowing SSH..."
     sudo ufw default deny incoming || { info "Failed to set default deny policy"; exit 1; }
     sudo ufw allow ssh || { info "Failed to allow SSH"; exit 1; }
-    sudo ufw enable || { info "Failed to enable UFW"; exit 1; }
+    sudo ufw --force enable || { info "Failed to enable UFW"; exit 1; }
 }
 
 main_firewall_setup() {

@@ -85,7 +85,7 @@ validate_secure_shared_memory() {
 }
 
 # Main function to set up shared memory hardening
-setup_shared_memory_hardening() {
+main_shared_memory_hardening_setup() {
   fstab_entry="tmpfs /run/shm tmpfs defaults,noexec,nosuid,nodev 0 0"
   check_root
   backup_fstab
