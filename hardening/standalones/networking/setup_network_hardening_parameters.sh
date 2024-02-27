@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # This script hardens the network configuration to improve security. It includes
 # backup of existing configurations, application of strict networking rules,
 # and adjustments to system parameters to mitigate various network-based attacks.
 
-main_network_hardening_parameters_setup() {
+main() {
   echo "Starting network configuration hardening process..."
 
   # Create a backup of the existing sysctl configuration with a timestamp
@@ -99,3 +101,5 @@ main_network_hardening_parameters_setup() {
 
   echo "Network configuration hardening completed."
 }
+
+main "$@"

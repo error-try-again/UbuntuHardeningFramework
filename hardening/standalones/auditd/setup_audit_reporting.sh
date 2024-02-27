@@ -3,7 +3,9 @@
 # Log a message to the log file
 log() {
   local message="$1"
-  echo "$(date +'%Y-%m-%d %H:%M:%S') - ${message}" >> "${log_file}"
+  local date
+  date=$(date +'%Y-%m-%d %H:%M:%S')
+  echo "${date} - ${message}" >> "${log_file}"
 }
 
 # Send a recipient with the audit report using sendmail
@@ -16,7 +18,9 @@ send_auditd_report() {
 
   # Set the subject for the recipient
   local subject
-  subject="[$(hostname)] - [Auditd Review Report] - [$(date +'%Y-%m-%d')]"
+  local hostname
+  hostname=$(hostname)
+  subject="[${hostname}] - [Auditd Review Report] - [$(date +'%Y-%m-%d')]"
 
   # Generate the audit report using aureport
   local report

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Main function
-main_auditd_setup() {
+main() {
   check_root
   echo "Initializing Auditd..."
 
@@ -23,3 +25,5 @@ main_auditd_setup() {
   write_auditd_reporting "${script_location}"
   update_cron_job "${script_location}" "${log_file}"
 }
+
+main "$@"

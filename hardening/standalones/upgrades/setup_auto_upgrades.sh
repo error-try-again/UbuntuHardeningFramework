@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Append or update a line in a file with a key value pair
 write_key() {
   local key="$1"
@@ -55,9 +57,11 @@ EOF
 }
 
 # Main
-main_auto_upgrades_setup() {
+main() {
   check_root
   echo "Initializing unattended-upgrades..."
   install_apt_packages "debconf-utils" "unattended-upgrades"
   configure_auto_updates
 }
+
+main "$@"

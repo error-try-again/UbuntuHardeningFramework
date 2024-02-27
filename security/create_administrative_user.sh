@@ -55,8 +55,10 @@ create_administrative_user() {
 # Initialize SSH key-based authentication
 setup_ssh_key_authentication() {
   local user=${1}
+
   local user_home
-  user_home=$(getent passwd "${user}" | cut -d: -f6)  # Get the home directory of the user
+  user_home=$(getent passwd "${user}")
+  user_home=$(echo "${user_home}" | cut -d: -f6)
 
   echo "Setting up SSH key authentication for '${user}'..."
   sudo -S mkdir -p "${user_home}/.ssh"

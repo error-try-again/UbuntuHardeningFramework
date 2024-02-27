@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Copy the lynis installer script to the relevant directory
 copy_installer() {
   local installer_location="$1"
@@ -14,7 +16,7 @@ copy_installer() {
 }
 
 # Main function to control script flow
-main_lynis_setup() {
+main() {
   check_root
   echo "Initializing Lynis..."
   local lynis_script_path="/usr/local/bin/lynis_installer.sh"
@@ -23,3 +25,5 @@ main_lynis_setup() {
   # Update the cron job
   update_cron_job "${lynis_script_path}" "/var/log/lynis_cron.log"
 }
+
+main "$@"

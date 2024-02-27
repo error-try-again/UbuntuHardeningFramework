@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Enable and start a service
 enable_service() {
   local service_name="$1"

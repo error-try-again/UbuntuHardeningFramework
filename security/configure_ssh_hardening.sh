@@ -25,8 +25,10 @@ EOF
 }
 
 # Ensure script is run with root privileges
-require_root() {
-  if [[ $(id -u) -ne 0 ]]; then
+check_root() {
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
     echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
@@ -56,11 +58,11 @@ parse_users() {
 backup_config() {
   local timestamp
   timestamp=$(date +%Y%m%d%H%M%S)
-  cp "${1}" "${1}.bak.$timestamp" || {
+  cp "${1}" "${1}.bak.${timestamp}" || {
       echo "Failed to back-up ${1}. Exiting..." >&2
       exit 1
   }
-  echo "Backup created at ${1}.bak.$timestamp"
+  echo "Backup created at ${1}.bak.${timestamp}"
 }
 
 # Update or append a configuration setting in a specified file.
@@ -194,7 +196,7 @@ restart_sshd() {
 
 # Main function
 main() {
-  require_root
+  check_root
 
   local ssh_port="22"
   local allow_users_list=""

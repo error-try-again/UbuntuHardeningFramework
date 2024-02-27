@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Main function
-main_fail2ban_setup() {
+main() {
   check_root
   echo "Initializing Fail2Ban..."
 
@@ -30,3 +32,5 @@ main_fail2ban_setup() {
   # Restart Fail2ban service to apply the new configuration
   restart_service "fail2ban"
 }
+
+main "$@"

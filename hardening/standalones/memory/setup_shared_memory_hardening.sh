@@ -1,87 +1,80 @@
 #!/usr/bin/env bash
 
-# Enhances the security of the shared memory filesystem by setting 'noexec', 'nosuid', and 'nodev' options.
-# Ensures these settings persist after reboot by updating /etc/fstab, and requires root privileges.
+set -euo pipefail
 
+# Enhances the security of /run/shm by setting 'noexec', 'nosuid', 'nodev' options.
+# Ensures these settings persist after reboot by updating /etc/fstab. Requires root privileges.
 
-# Check if script is being run as root
-check_root() {
-  if [[ ${EUID} -ne 0 ]]; then
+# Checks if the script is executed with root privileges.
+ensure_root() {
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
     echo "Error: This script must be run as root. Please rerun as root or using sudo." >&2
     exit 1
   fi
 }
 
-# Backs up the current fstab file with a timestamp
+# Backs up /etc/fstab with a timestamp.
 backup_fstab() {
-  local timestamp
-  timestamp=$(date +"%Y%m%d-%H%M%S")
-  echo "Backing up /etc/fstab to /etc/fstab.backup.${timestamp}..."
-  cp /etc/fstab "/etc/fstab.backup.${timestamp}" && echo "Backup created successfully." || {
-    echo "Failed to create backup of /etc/fstab." >&2
-    exit 2
+  local backup_path
+  backup_path="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
+  echo "Backing up /etc/fstab to ${backup_path}..."
+  cp /etc/fstab "${backup_path}" || {
+    echo "Failed to back up /etc/fstab." >&2
+    exit 1
   }
+  echo "Backup created successfully."
 }
 
-# Updates or adds the fstab entry for /run/shm with secure options
-secure_fstab_entry() {
-  local fstab_entry="$1"
+# Updates or adds the fstab entry for /run/shm with secure options.
+update_fstab() {
+  local entry="tmpfs /run/shm tmpfs defaults,noexec,nosuid,nodev 0 0"
+  echo "Ensuring secure options for /run/shm in /etc/fstab..."
+
+  # Replace existing entry with secure options or add if not present.
   if grep -qE "^tmpfs /run/shm tmpfs" /etc/fstab; then
-    echo "Shared memory entry exists, ensuring it has secure options..."
-    if ! grep -qE "^${fstab_entry}" /etc/fstab; then
-      echo "Updating /etc/fstab with secure options for shared memory..."
-      sed -i "/^tmpfs \/run\/shm tmpfs/c\\${fstab_entry}" /etc/fstab && echo "fstab entry updated." || {
-        echo "Failed to update fstab." >&2
-        exit 3
-      }
-    else
-      echo "Shared memory already has secure options."
-    fi
+    sed -i "\|^tmpfs /run/shm tmpfs|c\\${entry}" /etc/fstab
   else
-    echo "Adding secure shared memory entry to /etc/fstab..."
-    echo "${fstab_entry}" >> /etc/fstab && echo "Entry added successfully." || {
-      echo "Failed to add secure entry to /etc/fstab." >&2
-      exit 4
-    }
+    echo "${entry}" >> /etc/fstab
   fi
+
+  echo "/etc/fstab updated."
 }
 
-# Remounts /run/shm to apply new options
+# Remounts /run/shm to apply the new options.
 remount_shared_memory() {
-  echo "Applying new options by remounting /run/shm..."
-  if mount -o remount,defaults,noexec,nosuid,nodev /run/shm; then
-    echo "Remount successful."
+  if mount -o remount /run/shm; then
+    echo "Shared memory remounted successfully."
   else
-    echo "Remount failed. Please manually check mount options." >&2
-    exit 5
+    echo "Failed to remount /run/shm." >&2
+    exit 1
   fi
 }
 
-# Validates the security settings of /run/shm
-validate_security_settings() {
-  local fstab_entry="$1"
-  echo "Validating the security settings of shared memory..."
-
+# Validates the secure configuration of /run/shm.
+validate_config() {
+  echo "Validating shared memory configuration..."
   local mount_options
-  mount_options=$(mount | grep ' /run/shm ' | awk '{print $6}' | tr -d '()')
-  local required_options=("noexec" "nosuid" "nodev")
+  mount_options=$(findmnt -n -o OPTIONS /run/shm)
+
   local option
-    for option in "${required_options[@]}"; do
-    if [[ ${mount_options} != *"${option}"* ]]; then
-      echo "/run/shm does not have the ${option} option set." >&2
-      exit 6
+  for option in noexec nosuid nodev; do
+    if [[ ! "${mount_options}" = *"${option}"* ]]; then
+      echo "Validation failed: /run/shm missing ${option} option." >&2
+      exit 1
     fi
   done
 
-  echo "Shared memory security settings validated successfully."
+  echo "Shared memory is secured correctly."
 }
 
-main_shared_memory_hardening_setup() {
-  local fstab_entry="tmpfs /run/shm tmpfs defaults,noexec,nosuid,nodev 0 0"
+main() {
   ensure_root
   backup_fstab
-  secure_fstab_entry "${fstab_entry}"
+  update_fstab
   remount_shared_memory
-  validate_security_settings "${fstab_entry}"
+  validate_config
 }
 
+main "$@"

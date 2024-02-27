@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Source utility functions
 source_utility_functions() {
   source standalones/util/general/check_root.sh
@@ -23,36 +25,23 @@ source_utility_functions() {
   source standalones/util/backup/backup_jail_config.sh
   source standalones/util/report/fail2ban/view_fail2ban_config.sh
   source standalones/rkhunter/configure_rkhunter.sh
-
-  source standalones/rkhunter/setup_rkhunter.sh
-  source standalones/auditd/setup_auditd.sh
-  source standalones/lynis/setup_lynis.sh
-  source standalones/fail2ban/setup_fail2ban.sh
-  source standalones/upgrades/setup_auto_upgrades.sh
-  source standalones/firewall/setup_firewall.sh
-  source standalones/memory/setup_shared_memory_hardening.sh
-  source standalones/networking/setup_network_hardening_parameters.sh
-  source standalones/apparmor/setup_apparmor.sh
-
 }
 
 # Main functions
 main() {
   source_utility_functions
 
-  # Set up the SSHD IDS
+  # Call the standalone scripts to harden the system
   source standalones/sshd/setup_ssh_intrusion_detection.sh install
-
-  main_auditd_setup
-  main_fail2ban_setup
-  main_auto_upgrades_setup
-  main_rkhunter_setup
-  main_lynis_setup
-  main_firewall_setup
-  main_shared_memory_hardening_setup
-  main_network_hardening_parameters_setup
-  main_apparmor_setup
-
+  source standalones/auditd/setup_auditd.sh
+  source standalones/fail2ban/setup_fail2ban.sh
+  source standalones/upgrades/setup_auto_upgrades.sh
+  source standalones/rkhunter/setup_rkhunter.sh
+  source standalones/lynis/setup_lynis.sh
+  source standalones/firewall/setup_firewall.sh
+  source standalones/memory/setup_shared_memory_hardening.sh
+  source standalones/networking/setup_network_hardening_parameters.sh
+  source standalones/apparmor/setup_apparmor.sh
 }
 
 main "$@"

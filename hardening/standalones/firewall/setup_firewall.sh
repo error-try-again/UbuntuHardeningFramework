@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Prints informational messages to stdout.
 info() {
     echo "[INFO] $1"  # Echoes the input message prefixed with [INFO].
@@ -25,7 +27,9 @@ enable_strict_policy() {
     sudo ufw --force enable || { info "Failed to enable UFW"; exit 1; }
 }
 
-main_firewall_setup() {
+main() {
     install_ufw
     enable_strict_policy
 }
+
+main "$@"
