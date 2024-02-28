@@ -1,5 +1,107 @@
 #!/usr/bin/env bash
 
+# Adds specified SSH keys to a user's authorized_keys.
+inject_public_keys() {
+  # Ensure exactly two arguments are passed.
+  if [[ $# -ne 2 ]]; then
+    echo "Usage: $0 username 'key1 key2 key3 ...'"
+    return 1
+  fi
+
+  local username="$1"
+  local keys="$2"
+
+  # Verify if user exists.
+  if ! id "${username}" &>/dev/null; then
+    # Skip if user does not exist.
+    return 1
+  fi
+
+  # Retrieve user's home directory.
+  local user_string home_directory ssh_directory authorized_keys_file
+  user_string=$(getent passwd "${username}")
+  home_directory=$(echo "${user_string}" | cut -d: -f6)
+
+  # Check if home directory was successfully retrieved.
+  if [[ -z "${home_directory}" || ! -d "${home_directory}" ]]; then
+    echo "Unable to find or access the home directory for ${username}. Skipping..." >&2
+    return 1
+  fi
+
+  # Define .ssh directory and authorized_keys file paths.
+  ssh_directory="${home_directory}/.ssh"
+  authorized_keys_file="${ssh_directory}/authorized_keys"
+
+  # Ensure .ssh directory exists, with proper permissions and ownership.
+  if [[ ! -d "${ssh_directory}" ]]; then
+    mkdir -p "${ssh_directory}" && chmod 700 "${ssh_directory}"
+    chown "${username}":"${username}" "${ssh_directory}"
+  fi
+
+  # Ensure authorized_keys file exists, with proper permissions.
+  if [[ ! -f "${authorized_keys_file}" ]]; then
+    touch "${authorized_keys_file}" && chmod 600 "${authorized_keys_file}"
+    chown "${username}":"${username}" "${authorized_keys_file}"
+  fi
+
+  # Prepare a temporary file for new keys.
+  local temp_file
+  temp_file=$(mktemp)
+  trap 'rm -f "$temp_file"' EXIT
+
+  # Read each key and add it to the temporary file if it doesn't already exist.
+  #TODO; test the authorized key file is cleared on multiple entries
+  local key_added=0
+  while IFS= read -r key; do
+    if [[ -n "${key}" ]] && ! grep -q -F "${key}" "${authorized_keys_file}"; then
+      echo "${key}" >> "${temp_file}"
+      key_added=1
+    else
+      echo "Key already exists for ${username}: ${key}"
+    fi
+  done <<< "${keys}"
+
+
+  # Append new keys to authorized_keys if any.
+  if [[ ${key_added} -eq 1 ]]; then
+    cat "${temp_file}" >> "${authorized_keys_file}"
+    echo "Public keys successfully injected for ${username}."
+  else
+    echo "No new keys added for ${username}."
+  fi
+}
+
+# Injects public SSH keys into the authorized_keys file for each user in the map.
+inject_keys_for_all_users() {
+  for username in "${!user_ssh_keys_map[@]}"; do
+    local keys="${user_ssh_keys_map[${username}]}"
+    # Handle keys as newline-separated strings
+    inject_public_keys "${username}" "${keys}"
+  done
+}
+
+# Overwrite a file with new mapping if it exists, or create a new file if it doesn't.
+overwrite_file_with_new_mapping() {
+  local key_to_check="$1"
+  local mapping="$2"
+  local flag="$3"
+
+  if [[ -f ${key_to_check} && ${flag} -eq 0 ]]; then
+    echo "${key_to_check} already exists."
+    echo "Do you want to overwrite the ${key_to_check} with the defaults? (y/n)"
+    local overwrite
+    read -r overwrite
+    if [[ ${overwrite} == "y" ]]; then
+      echo "${mapping}" > "${key_to_check}"
+    else
+      return 1
+    fi
+  else
+    echo "${mapping}" > "${key_to_check}"
+    echo "${key_to_check} has been created."
+  fi
+}
+
 # Update Issue.net file
 update_issue_net() {
   cat << 'EOF' > /etc/issue.net
@@ -15,12 +117,16 @@ EOF
 # Usage message
 print_usage() {
   cat << EOF
-  Usage: ${0} [OPTIONS]
+Usage: ${0} [OPTIONS]
 
-  Options:
-    -p  Specify SSH port (default: 22)
-    -u  Specify a comma-separated list of allowed users
-    -f  Specify path to a file containing a list of users
+Options:
+  -p  Specify SSH port (default: 22)
+  -u  Specify a comma-separated list of allowed users (space separated)
+  -k  Specify path to a file containing a list of allowed users and mapped to their public keys. The file should be in the format is newline-separated, with each line containing a username and their public keys separated by a colon.Example: "void:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null
+admin:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null,ssh-ed2551 ...AAIDk7VFe example.eg@example.com"
+  -f Specify path to a file containing a list of allowed ssh users. The file should be a list of space separated usernames.
+  -h  Display this help message
+
 EOF
 }
 
@@ -42,15 +148,56 @@ validate_port() {
   fi
 }
 
-# Parse and validate users list
-parse_users() {
-  if [[ -n ${1} ]]; then
-    IFS=',' read -r -a users_array <<< "${1}"
-  elif [[ -f ${2} ]]; then
-    # Read the values from the file into a global array for use within the apply_configurations function.
-    readarray -t users_array < "${2}"
+# Parse users and their keys from a comma-separated string or a file
+# TODO: Clean up (separate logic into two distinct functions)
+parse_user_ssh_keys() {
+  local users_input="$1"
+  local allowed_users_list_path="$2"
+
+  # Parse users and keys from the input string
+  local users
+  IFS=' ' read -r -a users <<< "${users_input}"
+  local user_pair
+  for user_pair in "${users[@]}"; do
+    local username keys
+    username=$(echo "${user_pair}" | cut -d: -f1)
+    # Keys are expected to be comma-separated for each user
+    keys=$(echo "${user_pair}" | cut -d: -f2- | tr ',' '\n')
+    user_ssh_keys_map["${username}"]="${keys}"
+  done
+
+  # Optionally, parse from a file if specified
+  if [[ -n "${allowed_users_list_path}" && -f "${allowed_users_list_path}" ]]; then
+    while IFS= read -r line; do
+      local username keys
+      username=$(echo "${line}" | cut -d: -f1)
+      # Again, handling comma-separated keys
+      keys=$(echo "${line}" | cut -d: -f2- | tr ',' '\n')
+      user_ssh_keys_map["${username}"]="${keys}"
+    done < "${allowed_users_list_path}"
+  fi
+}
+
+# Parse allowed SSH users from a comma-separated string or a file
+parse_allowed_ssh_users() {
+  # If command-line list is provided
+  if [[ -n "$1" ]]; then
+    local users_array
+    IFS=',' read -r -a users_array <<< "$1"
+    local user_entry
+    for user_entry in "${users_array[@]}"; do
+      local username="${user_entry%%:*}"  # Extract username before ':'
+      local keys="${user_entry#*:}"  # Extract keys after ':'
+      allowed_ssh_users["${username}"]="${keys}"
+    done
+
+  # If file path is provided and the file exists
+  elif [[ -f "$2" ]]; then
+    while IFS=: read -r username keys; do
+      allowed_ssh_users["${username}"]="${keys}"
+    done < "$2"
   else
-    echo "Error: No users specified for SSH access." >&2
+    echo "Error: No valid user input provided or file does not exist." >&2
     exit 1
   fi
 }
@@ -99,6 +246,7 @@ install_google_authenticator() {
     apt-get install libpam-google-authenticator -y
 }
 
+# Append TOTP profile script execution to /etc/bash.bashrc
 append_totp_to_etc_bashrc() {
   mkdir -p /etc/ssh_login_scripts
 
@@ -110,6 +258,7 @@ append_totp_to_etc_bashrc() {
     cat << 'EOF' > "${totp_script}"
 #!/usr/bin/env bash
 
+# Logging function with error handling
 # Logging function with error handling
 log_event() {
   local current_time
@@ -180,6 +329,7 @@ EOF
   fi
 }
 
+# Configure PAM for 2FA
 configure_pam_for_2fa() {
     local sshd_pam_config="/etc/pam.d/sshd"
     local pam_common_auth_string="@include common-auth"
@@ -203,6 +353,30 @@ configure_pam_for_2fa() {
     grep -qE "${pam_google_authenticator_grep_query}" "${sshd_pam_config}" || echo "${pam_google_authenticator_string}" >> "${sshd_pam_config}"
 }
 
+# Generate a comma-separated list of allowed users from a file
+generate_allow_users_list() {
+  local allowed_users_list_path="$1"
+  local allow_users_list=""
+
+  # Check if the users list file exists and is readable
+  if [[ -f "${allowed_users_list_path}" && -r "${allowed_users_list_path}" ]]; then
+    # Placeholder to ignore the second field
+    local rest
+    # Read the file line by line and append the username to the allow_users_list
+    while IFS=: read -r username rest; do
+      if [[ -n "${username}" ]]; then
+        # Append username to allow_users_list, separated by commas
+        allow_users_list="${allow_users_list:+${allow_users_list},}${username}"
+      fi
+    done < "${allowed_users_list_path}"
+  else
+    echo "The specified users list file does not exist or cannot be read."
+    return 1
+  fi
+
+  echo "${allow_users_list}"
+}
+
 # Apply multiple security configurations to the sshd_config file.
 # This includes setting the SSH port, configuring user access, and securing the SSH daemon.
 apply_configurations() {
@@ -212,12 +386,17 @@ apply_configurations() {
   # Ensure there's a backup of the original sshd_config before making changes.
   backup_config "${sshd_config_file}"
 
-  # Convert the global users_array into a comma-separated string for the AllowUsers setting.
+  # Generate a comma-separated list of allowed users
   local allow_users_list
   allow_users_list=$(
                      IFS=','
-                              echo "${users_array[*]}"
+                              echo "${allowed_ssh_users[*]}"
   )
+
+  if [[ -z "${allow_users_list}" ]]; then
+    echo "No users to allow via SSH. Check the users list file."
+    return 1
+  fi
 
   # General Security Settings
   update_config "StrictModes" "yes" "${sshd_config_file}"
@@ -315,22 +494,35 @@ restart_sshd() {
 main() {
   check_root
 
-  local ssh_port="22"
-  local allow_users_list=""
-  local users_list_path=""
+  declare -Ag user_ssh_keys_map
+  declare -Ag allowed_ssh_users
+
+  local ssh_port="22"  # Default value, modify this for your system.
+
+  # Default values for allowed users and their keys if not specified via command-line arguments or files.
+  local allowed_users_ssh_key_mapping="admin:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null
+void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe example.eg@example.com"
+  local allowed_users="void,admin"
+
+  # Default paths for allowed users and their keys if not specified via command-line arguments.
+  local allowed_users_list_path="allowed_users.txt"
+  local allowed_users_key_map_path="allowed_users_keys.txt"
 
   local opt
-  while getopts ":p:u:f:h" opt; do
+  local allowed_ssh_users_file_flag=0
+  local allowed_ssh_key_map_file_flag=0
+  while getopts ":p:u:f:k:h" opt; do
     case ${opt} in
       p)
         ssh_port="${OPTARG}"
         validate_port "${ssh_port}"
         ;;
-      u) allow_users_list="${OPTARG}" ;;
-      f) users_list_path="${OPTARG}" ;;
+      u) allowed_users_ssh_key_mapping="${OPTARG}" ;;
+      f) allowed_users_list_path="${OPTARG}" allowed_ssh_users_file_flag=1 ;;
+      k) allowed_users_key_map_path="${OPTARG}" allowed_ssh_key_map_file_flag=1 ;;
       h)
         print_usage
-        exit
+        exit 1
         ;;
       \?)
         echo "Invalid option: -${OPTARG}" >&2
@@ -347,12 +539,24 @@ main() {
     esac
   done
 
-  parse_users "${allow_users_list}" "${users_list_path}"
-  update_issue_net
+  # Overwrite the default values for allowed users and their keys if the files do not exist or if the user chooses to overwrite them.
+  overwrite_file_with_new_mapping "${allowed_users_list_path}" "${allowed_users}" "${allowed_ssh_users_file_flag}"
+  overwrite_file_with_new_mapping "${allowed_users_key_map_path}" "${allowed_users_ssh_key_mapping}" "${allowed_ssh_key_map_file_flag}"
+
+  # Parse the ssh user key mapping and the allowed users list.
+  parse_user_ssh_keys "${allowed_users_ssh_key_mapping}" "${allowed_users_key_map_path}"
+  parse_allowed_ssh_users "${allowed_users}" "${allowed_users_list_path}"
+
+  # Inject the public keys provided via the user_ssh_keys_map into the authorized_keys file for each user.
+  inject_keys_for_all_users
+
+  # Apply the SSH hardening configurations to the sshd_config file.
   apply_configurations "${ssh_port}"
+
+  update_issue_net
   install_google_authenticator
-  configure_pam_for_2fa
   append_totp_to_etc_bashrc
+  configure_pam_for_2fa
   restart_sshd
 
   echo "SSH hardening configuration applied successfully."

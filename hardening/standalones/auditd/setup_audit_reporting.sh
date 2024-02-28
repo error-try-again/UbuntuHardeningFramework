@@ -14,7 +14,7 @@ send_auditd_report() {
   local recipient="$1"
 
   local sender
-  sender="yane.karov@legendland.com.au"
+  sender="example1.eg@example.com"
 
   # Set the subject for the recipient
   local subject
@@ -48,8 +48,8 @@ send_auditd_report() {
 main() {
   log_file="/var/log/audit-report.log"
   # Add Comma separated email addresses of the recipients to the variable
-  # Example: "yane.karov@gmail.com,example@gmail.com"
-  local recipients="yane.karov@gmail.com"
+  # Example: "example.eg@example.com,example@gmail.com"
+  local recipients="example.eg@example.com"
   send_auditd_report "${recipients}"
 }
 

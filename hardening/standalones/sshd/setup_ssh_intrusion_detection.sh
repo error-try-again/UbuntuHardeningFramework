@@ -16,7 +16,7 @@ start_service() {
 
 # Checks if the script is being run as root (used for apt)
 check_root() {
-  if [[ ${EUID} -ne 0   ]]; then
+  if [[ ${EUID} -ne 0 ]]; then
     echo "Please run as root"
     exit 1
   fi
@@ -112,7 +112,7 @@ initialize_variables() {
   last_check_file="/tmp/last_ssh_check"
 
   error_log_file="/var/log/ssh_monitor_error.log"
-  default_alert_email="yane.karov@gmail.com"
+  default_alert_email="example.eg@example.com"
   default_alert_threshold=1
   default_mail_subject="SSH Monitor Alert"
 

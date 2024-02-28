@@ -19,7 +19,7 @@ configure_auto_updates() {
   declare -A updates=(
           ["Unattended-Upgrade::DevRelease"]='"auto";'
           ["Unattended-Upgrade::MinimalSteps"]='"true";'
-          ["Unattended-Upgrade::Mail"]='"yane.karov@gmail.com";'
+          ["Unattended-Upgrade::Mail"]='"example.eg@example.com";'
           ["Unattended-Upgrade::MailReport"]='"always";'
           ["Unattended-Upgrade::Remove-Unused-Kernel-Packages"]='"false";'
           ["Unattended-Upgrade::Automatic-Reboot-WithUsers"]='"true";'

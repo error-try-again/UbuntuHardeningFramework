@@ -9,7 +9,8 @@ main() {
 
   local custom_jail="/etc/fail2ban/jail.local"
   local fail2ban_log_file="/var/log/fail2ban-setup.log"
-  local ip_list="167.179.173.46/32"
+  # TODO: Replace with the actual IP list of the server
+  local ip_list="5.5.5.5/32"
 
   install_apt_packages "fail2ban"
 

@@ -1,64 +1,54 @@
 #!/usr/bin/env bash
 
-# Configure SSH to use MFA
-configure_mfa() {
-
-  # Comment out the '@include common-auth' line in /etc/pam.d/sshd
-  if ! run_remote_command "sudo -S sed -i '/^@include common-auth/s/^/#/' /etc/pam.d/sshd"; then
-    echo "Error: Failed to comment out '@include common-auth' in /etc/pam.d/sshd"
-    prompt_user_for_actions
-  fi
-
-  # Add the 'AuthenticationMethods publickey' line to /etc/ssh/sshd_config
-  if ! run_remote_command "sudo -S sed -i '/^#.*AuthenticationMethods.*publickey/ s/^#//' /etc/ssh/sshd_config"; then
-    echo "Error: Failed to add 'AuthenticationMethods publickey' to /etc/ssh/sshd_config"
-    prompt_user_for_actions
-  fi
-
-  # Add the pam_google_authenticator.so line to the PAM configuration file for SSH
-  if ! run_remote_command "sudo -S sh -c 'grep -q -F \"auth required pam_google_authenticator.so\" /etc/pam.d/sshd || \
-                            echo \"auth required pam_google_authenticator.so\" >> /etc/pam.d/sshd'"; then
-    echo "Error: Failed to configure PAM for MFA"
-    prompt_user_for_actions
-  fi
-
-  echo "SSH is now configured to use MFA."
-  prompt_user_for_actions
+# Logging function with error handling
+log_event() {
+  local current_time
+  current_time=$(date '+%Y-%m-%d %H:%M:%S')
+  echo "[${current_time}] $1" | tee -a "${log_file}" >&2
 }
 
-# Enable MFA for the new admin user
-enable_mfa_for_admin_user() {
-  echo "Enabling MFA..."
+# Check for all required commands at the start
+check_dependencies() {
+  local missing_commands=()
+  local cmd
+  for cmd in "$@"; do
+    if ! command -v "${cmd}" &>/dev/null; then
+      missing_commands+=("${cmd}")
+    fi
+  done
 
-  # Run google-authenticator for the new admin user
-  if ! run_remote_command "google-authenticator -t -d -f -r 1 -R 30 -W"; then
-    echo "Error: Failed to enable MFA"
-    prompt_user_for_actions
+  if [[ ${#missing_commands[@]} -ne 0 ]]; then
+    local cmd
+    for cmd in "${missing_commands[@]}"; do
+      echo "Required command '${cmd}' not found. Please install it." >&2
+    done
+    log_event "Missing commands: ${missing_commands[*]}. Aborting."
+    exit 1
   fi
-
-  # Check that the .google_authenticator file was created for the new admin user
-  if ! run_remote_command "[[ -f ~/.google_authenticator ]]"; then
-    echo "Error: Failed to enable MFA"
-    prompt_user_for_actions
-  fi
-
-  echo "MFA enabled."
 }
 
-# Setup MFA for SSH login
-setup_mfa() {
-  # Check if MFA is already installed
-  if run_remote_command "dpkg-query --show libpam-google-authenticator"; then
-    echo "MFA is already installed."
+# Set up TOTP using Google Authenticator with improved error handling
+configure_totp() {
+  if [[ -f "${HOME}/.google_authenticator" ]]; then
+    echo "TOTP is already configured."
+    log_event "TOTP configuration found. No action needed."
   else
-    # Install Google Authenticator
-    echo "Installing Google Authenticator..."
-    if ! run_remote_command "sudo -S apt-get update && sudo -S apt-get install libpam-google-authenticator -y"; then
-      echo "Error: Failed to install Google Authenticator"
-      prompt_user_for_actions
+    echo "TOTP is not configured. Setting up TOTP..."
+    echo -e "To complete setup:\n1. Install the Google Authenticator app.\n2. Select 'Begin setup' > 'Scan a barcode'.\n3. Scan the QR code displayed.\n4. Follow the app instructions."
+    if google-authenticator -t -d -f -r 3 -R 30 -W; then
+      log_event "TOTP setup completed."
+    else
+      log_event "Error creating TOTP token."
+      exit 2
     fi
   fi
-
-  enable_mfa_for_admin_user
-  configure_mfa
 }
+
+# Main function
+main() {
+  log_file="${HOME}/google_auth_setup.log"
+  check_dependencies "google-authenticator"
+  configure_totp
+}
+
+main "$@"

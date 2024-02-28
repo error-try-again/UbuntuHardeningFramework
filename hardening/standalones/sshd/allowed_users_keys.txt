@@ -1,0 +1,2 @@
+example:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== eg@null
+adm:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== ad@null,ssh-ed2551 AAIDk7VFe ad@null

@@ -77,7 +77,7 @@ output_dns_record() {
 
 # Main function to orchestrate key generation and formatting for DNS
 main() {
-  local domain="legendland.com.au"
+  local domain="example.com.au"
   local selector="selector1"
   local key_size=${1:-2048}  # Default to 2048 bits, can be overridden with script argument
   local key_format=${2:-pkcs1}  # Default to PKCS #1, can be overridden with script argument

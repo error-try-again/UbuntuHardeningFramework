@@ -5,7 +5,6 @@ set -euo pipefail
 # This script hardens the network configuration to improve security. It includes
 # backup of existing configurations, application of strict networking rules,
 # and adjustments to system parameters to mitigate various network-based attacks.
-
 main() {
   echo "Starting network configuration hardening process..."
 

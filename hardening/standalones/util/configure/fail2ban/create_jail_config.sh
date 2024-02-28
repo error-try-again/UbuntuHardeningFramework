@@ -22,8 +22,8 @@ create_jail_config() {
         findtime = 300
         bantime = 86400
         ignoreip = ${ip_list}
-        destemail = yane.karov@gmail.com
-        sender = yane.karov@legendland.com.au
+        destemail = example.eg@example.com
+        sender = example1.eg@example.com
         sendername = Fail2Ban
         mta = sendmail
         action = %(action_mwl)s

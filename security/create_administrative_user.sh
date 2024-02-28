@@ -71,7 +71,7 @@ setup_ssh_key_authentication() {
 }
 
 main() {
-  if [[ $# -ne 1   ]]; then
+  if [[ $# -ne 1 ]]; then
     show_help
     exit 1
   fi
@@ -91,4 +91,4 @@ main() {
 main "${@}"
 
 # To set up SSH access while root access is still enabled perform the following:
-# ssh -v -i ~/.ssh/ssd-nodes root@208.87.135.31 "cat >> /home/void/.ssh/authorized_keys" < "/home/void/.ssh/ssd-nodes.pub" 2>/dev/null
+# ssh -v -i ~/.ssh/ssd-nodes root@5.5.5.5 "cat >> /home/void/.ssh/authorized_keys" < "/home/void/.ssh/ssd-nodes.pub" 2>/dev/null

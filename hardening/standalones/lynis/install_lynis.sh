@@ -125,7 +125,7 @@ send_email() {
   local recipient="$3"
 
   local sender
-  sender="yane.karov@legendland.com.au"
+  sender="example1.eg@example.com"
 
   local mail_tool="sendmail"
 
@@ -198,7 +198,7 @@ lynis_installer() {
   ./lynis --developer --quiet
 
   # Send the audit report via email
-  send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "yane.karov@gmail.com"
+  send_email "Lynis Audit Report" "${log_dir}/lynis-report.dat" "example.eg@example.com"
 }
 
 # Main function to control script flow

@@ -42,6 +42,8 @@ main() {
   source standalones/memory/setup_shared_memory_hardening.sh
   source standalones/networking/setup_network_hardening_parameters.sh
   source standalones/apparmor/setup_apparmor.sh
+  source standalones/password/setup_password_policy.sh
+  source standalones/sshd/configure_ssh_hardening.sh
 }
 
 main "$@"

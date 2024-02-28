@@ -43,7 +43,7 @@ send_email() {
   local recipient="$3"
 
   local sender
-  sender="yane.karov@legendland.com.au"
+  sender="example1.eg@example.com"
 
   local mail_tool="sendmail"
 
