@@ -553,7 +553,10 @@ void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe example.eg@
   # Apply the SSH hardening configurations to the sshd_config file.
   apply_configurations "${ssh_port}"
 
-
+  update_issue_net
+  install_google_authenticator
+  append_totp_to_etc_bashrc
+  configure_pam_for_2fa
   restart_sshd
 
   echo "SSH hardening configuration applied successfully."
