@@ -1,6 +1,6 @@
 # A Definitive Automated Hardening Framework for Ubuntu 🔐
 
-The following bash framework stands up and installs several bespoke security toolkits, developed to provide seamless automatic security controls for Ubuntu servers. The toolkits are designed to be deployed in a modular fashion, allowing for easy integration and configuration.
+The following bash framework stands up and installs several bespoke security toolkits, developed to provide seamless automatic security controls for Ubuntu servers.
 
 ### Primary Toolkits
 - [x] SSH Intrusion Detection (Custom Daemon) /w Email Alerts & Logs
@@ -12,13 +12,13 @@ The following bash framework stands up and installs several bespoke security too
 - [x] Firewall (UFW) Deployment - Default Deny, pre-deployment testing, and Email Alerts & Logs
 - [x] Automated Shared Memory Hardening & Restriction Deployment (/run/shm)
 - [x] Automated Network Kernel Hardening Deployment (TCP/IP Stack Hardening) (E.g., DDoS Mitigation, ICMP, SYN Flood, etc.)
-- [x] Automated AppArmor Deployment - Customized Enforcing Profiles & Logging 
+- [x] Automated AppArmor Deployment - Customized Enforcing Profiles & Logging
 - [x] Automated Password Policy Deployment - Highly Conservative Configuration & Logging (e.g., Password Complexity, Length, etc.)
 - [x] Automated SSH Hardening Deployment - Includes MFA, Key-Based Authentication & Hardened Configuration (e.g., AllowUsers, AllowGroups, etc.)
 
 ### Extra Toolkits
 - [x] SSH Key generation, keyscan and deployment Scripts (optional)
-- [x] Administrative user account creation and hardening (optional) 
+- [x] Administrative user account creation and hardening (optional)
 - [x] AWS DKIM & DMARC Configuration Deployment Toolkits (optional)
 - [x] Automated Postfix Forwarding Service Deployment (optional)
 
@@ -50,7 +50,7 @@ cd /hardening/standalones
 find . -type f -name '*.sh' -exec bash {} \;
 ```
 
-Or individually 
+Or individually
 ```bash
 cd /hardening/standalones
 chmod +x *.sh
@@ -58,7 +58,7 @@ chmod +x *.sh
 # etc...
 ```
 
-# Roadmap 
+# Roadmap
 - [ ] Add precise configuration examples & documentation
 - [ ] Additional toolkits (e.g., further kernel hardening, automatic audit remediation, etc.)
 - [ ] Additional controls for alerts and logs
