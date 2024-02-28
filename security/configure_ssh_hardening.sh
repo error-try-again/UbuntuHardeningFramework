@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Update Issue.net file
 update_issue_net() {
   cat << 'EOF' > /etc/issue.net
@@ -99,7 +101,7 @@ install_google_authenticator() {
     apt-get install libpam-google-authenticator -y
 }
 
-append_totp_to_etc_bashrc() {
+append_totp_to_etc_profile() {
   mkdir -p /etc/ssh_login_scripts
 
   local totp_script="/etc/ssh_login_scripts/google_authenticator_totp_check.sh"
@@ -170,13 +172,13 @@ EOF
   local totp_script_execution="source ${totp_script}"
   local totp_script_execution_grep_query="^#*source ${totp_script}"
 
-  # Check if the script execution already exists in /etc/bash.bashrc
-  if grep -qE "${totp_script_execution_grep_query}" /etc/bash.bashrc; then
-    echo "TOTP profile script execution already exists in /etc/bash.bashrc."
+  # Check if the script execution already exists in /etc/profile
+  if grep -qE "${totp_script_execution_grep_query}" /etc/profile; then
+    echo "TOTP profile script execution already exists in /etc/profile."
   else
-    # Append script execution to /etc/bash.bashrc
-    echo "${totp_script_execution}" >> /etc/bash.bashrc
-    echo "TOTP profile script execution added to /etc/bash.bashrc."
+    # Append script execution to /etc/profile
+    echo "${totp_script_execution}" >> /etc/profile
+    echo "TOTP profile script execution added to /etc/profile."
   fi
 }
 
@@ -352,7 +354,7 @@ main() {
   apply_configurations "${ssh_port}"
   install_google_authenticator
   configure_pam_for_2fa
-  append_totp_to_etc_bashrc
+  append_totp_to_etc_profile
   restart_sshd
 
   echo "SSH hardening configuration applied successfully."

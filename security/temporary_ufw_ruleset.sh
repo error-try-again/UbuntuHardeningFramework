@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Prints informational messages to stdout.
 info() {
     echo "[INFO] $1"  # Echoes the input message prefixed with [INFO].

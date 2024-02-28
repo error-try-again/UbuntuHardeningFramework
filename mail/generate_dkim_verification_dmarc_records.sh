@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Cleans the key by removing the first and last lines and all newline characters
 clean_key() {
   local key_file=$1

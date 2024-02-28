@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+# Checks if the script is being run as root
+check_root() {
+  if [[ ${EUID} -ne 0   ]]; then
+    echo "Please run as root"
+    exit 1
+  fi
+}
+
 # Prints informational messages to stdout.
 info() {
     echo "[INFO] $1"  # Echoes the input message prefixed with [INFO].
@@ -28,6 +36,7 @@ enable_strict_policy() {
 }
 
 main() {
+    check_root
     install_ufw
     enable_strict_policy
 }

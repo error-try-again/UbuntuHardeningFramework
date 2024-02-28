@@ -2,12 +2,47 @@
 
 set -euo pipefail
 
+# Checks if the script is being run as root
+check_root() {
+  if [[ ${EUID} -ne 0   ]]; then
+    echo "Please run as root"
+    exit 1
+  fi
+}
+
+# Log a message to the log file
+log() {
+  local message="$1"
+  local date
+  date=$(date +'%Y-%m-%d %H:%M:%S')
+}
+
 # Append or update a line in a file with a key value pair
 write_key() {
   local key="$1"
   local value="$2"
   local config_file="$3"
   echo "${key} ${value}" >> "${config_file}"
+}
+
+# Updates the cron job for a script
+update_cron_job() {
+  local script="$1"
+  local log_file="$2"
+  local cron_entry="0 0 * * * ${script} >${log_file} 2>&1"
+
+  local current_cron_job
+  current_cron_job=$(crontab -l | grep "${script}")
+
+  if [[ -z ${current_cron_job} ]] || [[ ${current_cron_job} != "${cron_entry}" ]]; then
+    (
+      crontab -l 2> /dev/null | grep -v "${script}"
+                                                         echo "${cron_entry}"
+    )                                                                          | crontab -
+    echo "Cron job updated."
+  else
+    echo "Cron job already up to date."
+  fi
 }
 
 # Configures automatic updates
@@ -54,6 +89,29 @@ Unattended-Upgrade::Allowed-Origins {
 EOF
 
   update_cron_job "/usr/bin/unattended-upgrade -d" "/var/log/unattended-upgrades.log"
+}
+
+# Installs a list of apt packages
+install_apt_packages() {
+  local package_list=("${@}") # Capture all arguments as an array of packages
+  apt update -y || { log "Failed to update package lists..."; exit 1; }
+  local package
+  for package in "${package_list[@]}"; do
+    local dpkg_list
+    dpkg_list=$(dpkg -l | grep -w "${package}")
+    if [[ -n "${dpkg_list}" ]]; then
+      log "${package} is already installed."
+    else
+      # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error when running in parallel with other apt commands
+      sleep 1
+      if apt install -y "${package}"; then
+        log "Successfully installed ${package}."
+      else
+        log "Failed to install ${package}..."
+        exit 1
+      fi
+    fi
+  done
 }
 
 # Main

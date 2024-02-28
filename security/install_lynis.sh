@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Cleans up old versions of Lynis
 cleanup_old_lynis() {
   local lynis_dir="$1"
@@ -28,10 +30,12 @@ download_lynis() {
                                                                              echo "Failed to download Lynis tarball"
                                                                                                                       exit 1
   }
+
   wget -q "${lynis_tarball_url}.asc" -O "${download_path}/${lynis_tarball}.asc" || {
                                                                                      echo "Failed to download Lynis signature file"
                                                                                                                                      exit 1
   }
+
   [[ -s "${download_path}/${lynis_tarball}.asc" ]] || {
                                                       echo "Lynis signature file is missing or empty"
                                                                                                        exit 1

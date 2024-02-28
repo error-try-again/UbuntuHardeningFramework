@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+# Checks if the script is being run as root
+check_root() {
+  if [[ ${EUID} -ne 0 ]]; then
+    echo "Please run as root"
+    exit 1
+  fi
+}
+
 # Enable and start a service
 enable_service() {
   local service_name="$1"
@@ -12,14 +20,6 @@ enable_service() {
 start_service() {
   local service_name="$1"
   systemctl start "${service_name}" --no-pager
-}
-
-# Checks if the script is being run as root (used for apt)
-check_root() {
-  if [[ ${EUID} -ne 0 ]]; then
-    echo "Please run as root"
-    exit 1
-  fi
 }
 
 # Ensure that a file is writeable
@@ -55,7 +55,7 @@ update_cron_job() {
   current_cron_job=$(crontab -l | grep "${script}")
 
   if [[ -z ${current_cron_job} ]] || [[ ${current_cron_job} != "${cron_entry}" ]]; then
-    (
+    ( 
       crontab -l 2> /dev/null | grep -v "${script}"
                                                          echo "${cron_entry}"
     )                                                                          | crontab -
@@ -70,7 +70,9 @@ ssh_system_log() {
   local log_type="$1"
   local message="$2"
   local log_file="$3"
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - ${log_type}: ${message}" | tee -a "${log_file}"
+  local date
+  date=$(date '+%Y-%m-%d %H:%M:%S')
+  echo "${date} - ${log_type}: ${message}" | tee -a "${log_file}"
 }
 
 # Send email with throttling
@@ -132,6 +134,7 @@ initialize_variables() {
 }
 
 # Load configuration from the local config file
+# shellcheck disable=SC1091
 load_config() {
   local local_config_file="$1"
   local log_file="$2"
@@ -295,8 +298,10 @@ log_session_data() {
       ssh_system_log "INFO" "Created ssh_system_log file at ${log_file}" "${log_file}"
     fi
 
+    local date
+    date=$(date '+%Y-%m-%d %H:%M:%S')
     {
-      echo "[$(date '+%a %b %d %H:%M')] New SSH sessions detected:"
+      echo "[${date}] New SSH sessions detected:"
       echo "${line}"
     } >> "${log_file}" || {
       ssh_system_log "ERROR" "Unable to write to ssh_system_log file." "${error_log_file}"
@@ -349,8 +354,12 @@ main() {
   handle_file_checks
   load_config "${local_config_file}" "${log_file}" "${error_log_file}" "${default_alert_email}" "${default_alert_threshold}" "${default_mail_subject}"
 
-  # Check command line arguments for daemon management
-  if [[ $1 =~ ^(install|status|stop|disable)$ ]]; then
+  # if no arguments are passed to the script, execute the main loop
+
+  if [[ $# -eq 0 ]]; then
+    echo "Starting SSHD IDS..."
+    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "install"
+  elif [[ $1 =~ ^(install|status|stop|disable)$ ]]; then
     manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "$1"
   else
     local cycle_duration=20

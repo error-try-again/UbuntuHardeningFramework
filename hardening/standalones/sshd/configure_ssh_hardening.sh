@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
+# Ensure script is run with root privileges
+check_root() {
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
+    exit 1
+  fi
+}
+
 # Adds specified SSH keys to a user's authorized_keys.
 inject_public_keys() {
   # Ensure exactly two arguments are passed.
@@ -11,47 +23,49 @@ inject_public_keys() {
   local username="$1"
   local keys="$2"
 
-  # Verify if user exists.
-  if ! id "${username}" &>/dev/null; then
-    # Skip if user does not exist.
-    return 1
-  fi
-
   # Retrieve user's home directory.
-  local user_string home_directory ssh_directory authorized_keys_file
-  user_string=$(getent passwd "${username}")
-  home_directory=$(echo "${user_string}" | cut -d: -f6)
+  local home_directory
+  home_directory=$(getent passwd "${username}" | cut -d: -f6)
 
   # Check if home directory was successfully retrieved.
   if [[ -z "${home_directory}" || ! -d "${home_directory}" ]]; then
     echo "Unable to find or access the home directory for ${username}. Skipping..." >&2
-    return 1
+  else
+    echo "Home directory for ${username} found at: ${home_directory}"
   fi
 
   # Define .ssh directory and authorized_keys file paths.
+  local ssh_directory
   ssh_directory="${home_directory}/.ssh"
+
+  local authorized_keys_file
   authorized_keys_file="${ssh_directory}/authorized_keys"
 
   # Ensure .ssh directory exists, with proper permissions and ownership.
   if [[ ! -d "${ssh_directory}" ]]; then
+    echo "Creating .ssh directory for ${username}..."
     mkdir -p "${ssh_directory}" && chmod 700 "${ssh_directory}"
     chown "${username}":"${username}" "${ssh_directory}"
   fi
 
   # Ensure authorized_keys file exists, with proper permissions.
   if [[ ! -f "${authorized_keys_file}" ]]; then
+    echo "Creating authorized_keys file for ${username}..."
     touch "${authorized_keys_file}" && chmod 600 "${authorized_keys_file}"
     chown "${username}":"${username}" "${authorized_keys_file}"
   fi
 
   # Prepare a temporary file for new keys.
   local temp_file
-  temp_file=$(mktemp)
-  trap 'rm -f "$temp_file"' EXIT
+  temp_file=$(mktemp) || {
+    echo "Failed to create a temporary file. Exiting..." >&2
+    exit 1
+  }
 
   # Read each key and add it to the temporary file if it doesn't already exist.
-  #TODO; test the authorized key file is cleared on multiple entries
+  # TODO; test the authorized key file is cleared on multiple entries
   local key_added=0
+  local key
   while IFS= read -r key; do
     if [[ -n "${key}" ]] && ! grep -q -F "${key}" "${authorized_keys_file}"; then
       echo "${key}" >> "${temp_file}"
@@ -61,22 +75,31 @@ inject_public_keys() {
     fi
   done <<< "${keys}"
 
-
   # Append new keys to authorized_keys if any.
   if [[ ${key_added} -eq 1 ]]; then
     cat "${temp_file}" >> "${authorized_keys_file}"
-    echo "Public keys successfully injected for ${username}."
+    echo "Added new keys for ${username}."
   else
-    echo "No new keys added for ${username}."
+    echo "No new keys to add for ${username}."
   fi
+
 }
 
 # Injects public SSH keys into the authorized_keys file for each user in the map.
 inject_keys_for_all_users() {
+  echo "Injecting public keys for all users..."
   for username in "${!user_ssh_keys_map[@]}"; do
     local keys="${user_ssh_keys_map[${username}]}"
     # Handle keys as newline-separated strings
-    inject_public_keys "${username}" "${keys}"
+
+    if ! id "${username}" &>/dev/null; then
+      echo "Moving to the next user..."
+      continue
+    else
+      echo "Injecting keys for user: ${username}"
+      inject_public_keys "${username}" "${keys}"
+    fi
+
   done
 }
 
@@ -93,8 +116,6 @@ overwrite_file_with_new_mapping() {
     read -r overwrite
     if [[ ${overwrite} == "y" ]]; then
       echo "${mapping}" > "${key_to_check}"
-    else
-      return 1
     fi
   else
     echo "${mapping}" > "${key_to_check}"
@@ -130,16 +151,6 @@ admin:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null,ssh-ed2551 ...AAIDk7VFe exam
 EOF
 }
 
-# Ensure script is run with root privileges
-check_root() {
-  local uuid
-  uuid=$(id -u)
-  if [[ ${uuid} -ne 0 ]]; then
-    echo "This script must be run as root. Exiting..." >&2
-    exit 1
-  fi
-}
-
 # Validate SSH port number
 validate_port() {
   if ! [[ ${1} =~ ^[0-9]+$ ]] || ((${1} < 1 || ${1} > 65535)); then
@@ -153,6 +164,8 @@ validate_port() {
 parse_user_ssh_keys() {
   local users_input="$1"
   local allowed_users_list_path="$2"
+
+  echo "Parsing users and their keys..."
 
   # Parse users and keys from the input string
   local users
@@ -168,6 +181,7 @@ parse_user_ssh_keys() {
 
   # Optionally, parse from a file if specified
   if [[ -n "${allowed_users_list_path}" && -f "${allowed_users_list_path}" ]]; then
+    local line
     while IFS= read -r line; do
       local username keys
       username=$(echo "${line}" | cut -d: -f1)
@@ -180,6 +194,7 @@ parse_user_ssh_keys() {
 
 # Parse allowed SSH users from a comma-separated string or a file
 parse_allowed_ssh_users() {
+  echo "Parsing allowed SSH users..."
   # If command-line list is provided
   if [[ -n "$1" ]]; then
     local users_array
@@ -246,7 +261,7 @@ install_google_authenticator() {
     apt-get install libpam-google-authenticator -y
 }
 
-# Append TOTP profile script execution to /etc/bash.bashrc
+# Append TOTP profile script execution to /etc/profile
 append_totp_to_etc_bashrc() {
   mkdir -p /etc/ssh_login_scripts
 
@@ -319,13 +334,21 @@ EOF
   local totp_script_execution="source ${totp_script}"
   local totp_script_execution_grep_query="^#*source ${totp_script}"
 
-  # Check if the script execution already exists in /etc/bash.bashrc
-  if grep -qE "${totp_script_execution_grep_query}" /etc/bash.bashrc; then
-    echo "TOTP profile script execution already exists in /etc/bash.bashrc."
+  if grep -qE "${totp_script_execution_grep_query}" /etc/zsh/zprofile; then
+    echo "TOTP profile script execution already exists in /etc/zsh/zprofile."
   else
-    # Append script execution to /etc/bash.bashrc
-    echo "${totp_script_execution}" >> /etc/bash.bashrc
-    echo "TOTP profile script execution added to /etc/bash.bashrc."
+    # Append script execution to /etc/zsh/zprofile
+    echo "${totp_script_execution}" >> /etc/zsh/zprofile
+    echo "TOTP profile script execution added to /etc/zsh/zprofile."
+  fi
+
+  # Check if the script execution already exists in /etc/profile
+  if grep -qE "${totp_script_execution_grep_query}" /etc/profile; then
+    echo "TOTP profile script execution already exists in /etc/profile."
+  else
+    # Append script execution to /etc/profile
+    echo "${totp_script_execution}" >> /etc/profile
+    echo "TOTP profile script execution added to /etc/profile."
   fi
 }
 
@@ -382,6 +405,8 @@ generate_allow_users_list() {
 apply_configurations() {
   local ssh_port="$1"
   local sshd_config_file="/etc/ssh/sshd_config"
+
+  echo "Applying SSH hardening configurations..."
 
   # Ensure there's a backup of the original sshd_config before making changes.
   backup_config "${sshd_config_file}"

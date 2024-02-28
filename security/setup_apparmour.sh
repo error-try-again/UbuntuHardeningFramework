@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Ensures the script is executed with root privileges. Exits if not.
 check_root() {
   if [[ ${EUID} -ne 0 ]]; then

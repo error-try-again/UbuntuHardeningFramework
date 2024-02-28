@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Adds specified SSH keys to user's authorized_keys.
 inject_public_keys() {
   # Check correct number of arguments.
