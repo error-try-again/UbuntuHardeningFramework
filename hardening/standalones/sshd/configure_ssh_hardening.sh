@@ -386,10 +386,10 @@ apply_configurations() {
   # Ensure there's a backup of the original sshd_config before making changes.
   backup_config "${sshd_config_file}"
 
-  # Generate a comma-separated list of allowed users
+  # Generate a space-separated list of allowed users from the file
   local allow_users_list
   allow_users_list=$(
-                     IFS=','
+                     IFS=' '  # Set the Internal Field Separator to space
                               echo "${allowed_ssh_users[*]}"
   )
 
@@ -553,10 +553,7 @@ void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe example.eg@
   # Apply the SSH hardening configurations to the sshd_config file.
   apply_configurations "${ssh_port}"
 
-  update_issue_net
-  install_google_authenticator
-  append_totp_to_etc_bashrc
-  configure_pam_for_2fa
+
   restart_sshd
 
   echo "SSH hardening configuration applied successfully."
