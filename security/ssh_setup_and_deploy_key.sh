@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Generates an SSH key pair, updates known_hosts, and copies the public key to the server.
 # Usage: ./this_script.sh <server> <username> <email>
 

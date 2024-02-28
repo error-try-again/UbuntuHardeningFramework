@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Create a new email identity in AWS SES with DKIM signing enabled using the AWS CLI
 main() {
 

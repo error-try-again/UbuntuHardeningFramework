@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Logging function with error handling
 log_event() {
   local current_time

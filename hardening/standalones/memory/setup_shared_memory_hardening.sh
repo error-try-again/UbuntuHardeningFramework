@@ -5,12 +5,10 @@ set -euo pipefail
 # Enhances the security of /run/shm by setting 'noexec', 'nosuid', 'nodev' options.
 # Ensures these settings persist after reboot by updating /etc/fstab. Requires root privileges.
 
-# Checks if the script is executed with root privileges.
-ensure_root() {
-  local uuid
-  uuid=$(id -u)
-  if [[ ${uuid} -ne 0 ]]; then
-    echo "Error: This script must be run as root. Please rerun as root or using sudo." >&2
+# Checks if the script is being run as root
+check_root() {
+  if [[ ${EUID} -ne 0   ]]; then
+    echo "Please run as root"
     exit 1
   fi
 }
@@ -70,7 +68,7 @@ validate_config() {
 }
 
 main() {
-  ensure_root
+  check_root
   backup_fstab
   update_fstab
   remount_shared_memory

@@ -1,23 +1,22 @@
 # A Definitive Automated Hardening Framework for Ubuntu 🔐
 
-The following bash framework stands up and installs the following bespoke security toolkits via the 
-`automated_hardening.sh` script. The script is designed to be run on a fresh Ubuntu installation.
+The following bash framework stands up and installs several bespoke security toolkits, developed to provide seamless automatic security controls for Ubuntu servers. The toolkits are designed to be deployed in a modular fashion, allowing for easy integration and configuration.
 
 ### Primary Toolkits
 - [x] SSH Intrusion Detection (Custom Daemon) /w Email Alerts & Logs
 - [x] Auditd (Hardened Configuration) - /w Email Alerts & Logs
-- [x] Automated Fail2Ban Deployment (Restrictive Configuration with incremental bans) - /w Email Alerts & Logs
-- [x] Automated Upgrading Installation (Security & Critical) Deployment - Bespoke Cron Jobs, Email Alerts & Logs
-- [x] Automated RKHunter Deployment - Scans, Email Alerts, and Cron Job (Daily) (Weekly)
-- [x] Automated Lynis Deployment - Scans, Source Builds, Fingerprinting, Email Alerts, and Cron Job (Daily) (Weekly) 
+- [x] Automated Fail2Ban Deployment (Hardened Restrictive Configuration with incremental bans) - /w Email Alerts, Logs & Whitelisting
+- [x] Automated Upgrading Installation (Security & Critical) Deployment - Cron Jobs, Email Alerts & Logs
+- [x] Automated RKHunter Deployment - Scans, Email Alerts, and Cron Job (Daily) (Weekly) /w Email Reports & Logs
+- [x] Automated Lynis Deployment - Scans, Source Builds, Fingerprinting, Email Alerts, and Cron Job (Daily) (Weekly) /w Email Reports & Logs
 - [x] Firewall (UFW) Deployment - Default Deny, pre-deployment testing, and Email Alerts & Logs
-- [x] Automated Shared Memory Hardening & Restriction Deployment
+- [x] Automated Shared Memory Hardening & Restriction Deployment (/run/shm)
 - [x] Automated Network Kernel Hardening Deployment (TCP/IP Stack Hardening) (E.g., DDoS Mitigation, ICMP, SYN Flood, etc.)
-- [x] Automated AppArmor Deployment - Bespoke Profiles & Logs
-- [x] Automated Password Policy Deployment - Bespoke Configuration & Logs
-- [x] Automated SSH Hardening Deployment - Includes MFA, Key-Based Authentication, and highly defensive configuration
+- [x] Automated AppArmor Deployment - Customized Enforcing Profiles & Logging 
+- [x] Automated Password Policy Deployment - Highly Conservative Configuration & Logging (e.g., Password Complexity, Length, etc.)
+- [x] Automated SSH Hardening Deployment - Includes MFA, Key-Based Authentication & Hardened Configuration (e.g., AllowUsers, AllowGroups, etc.)
 
-### Extras Toolkits
+### Extra Toolkits
 - [x] SSH Key generation, keyscan and deployment Scripts (optional)
 - [x] Administrative user account creation and hardening (optional) 
 - [x] AWS DKIM & DMARC Configuration Deployment Toolkits (optional)
@@ -36,8 +35,33 @@ Modify the default ip (5.5.5.5) in `/hardening/standalones/fail2ban/setup_fail2b
 
 ### Execution
 
-Finally, run the script with the following commands to start the hardening process.
+The script can be executed directly or as a series of individual standalone scripts.
+
+Directly as a single script
 ```bash
+pwd # /hardening
 chmod +x automated_hardening.sh
 ./automated_hardening.sh
 ```
+
+Or as a series of individual standalone scripts
+```bash
+cd /hardening/standalones
+find . -type f -name '*.sh' -exec bash {} \;
+```
+
+Or individually 
+```bash
+cd /hardening/standalones
+chmod +x *.sh
+./setup_auditd.sh
+# etc...
+```
+
+# Roadmap 
+- [ ] Add precise configuration examples & documentation
+- [ ] Additional toolkits (e.g., further kernel hardening, automatic audit remediation, etc.)
+- [ ] Additional controls for alerts and logs
+- [ ] Streamline configuration for easy deployment
+- [ ] Email digests for alerts
+

@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Log messages with appropriate prefixes
 system_log() {
   local log_type="$1"
   local message="$2"
   local log_file="$3"
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - ${log_type}: ${message}" | tee -a "${log_file}"
+  local date
+  date=$(date '+%Y-%m-%d %H:%M:%S')
+  echo "${date} - ${log_type}: ${message}" | tee -a "${log_file}"
 }
 
-# Checks if the script is being run as root (used for apt)
+# Checks if the script is being run as root
 check_root() {
   if [[ ${EUID} -ne 0 ]]; then
     echo "Please run as root"
