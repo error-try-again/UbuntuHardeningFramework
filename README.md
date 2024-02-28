@@ -64,4 +64,3 @@ chmod +x *.sh
 - [ ] Additional controls for alerts and logs
 - [ ] Streamline configuration for easy deployment
 - [ ] Email digests for alerts
-
