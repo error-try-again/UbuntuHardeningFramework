@@ -64,3 +64,10 @@ chmod +x *.sh
 - [ ] Additional controls for alerts and logs
 - [ ] Streamline configuration for easy deployment
 - [ ] Email digests for alerts
+
+# Notes
+If for some reason you need to reinstall apt installed configuration files to their defaults, e.g. pam.d, you can use the following command:
+
+```bash
+sudo apt install --reinstall -o Dpkg::Options::="--force-confmiss" $(dpkg -S /etc/pam.d/\* | cut -d ':' -f 1)
+```
