@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+usage() {
+  echo "Usage: $0 <username>"
+  echo "  <username> - The name of the administrative user to create."
+  exit 1
+}
+
 # Create an administrative user
 create_administrative_user() {
   local user=${1}
@@ -35,9 +41,9 @@ setup_ssh_key_authentication() {
 
 # Main function
 main() {
-  if [[ $# -ne 1 ]]; then
-    show_help
-    exit 1
+
+  if [ "${#}" -ne 1 ]; then
+    usage
   fi
 
   local user=${1}
