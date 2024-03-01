@@ -4,8 +4,10 @@ set -euo pipefail
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0 ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }
@@ -77,9 +79,9 @@ ssh_system_log() {
 
 # Send email with throttling
 send_email_with_throttle() {
-  local mail_subject="${1}"
+  local email_subject="${1}"
   local message="${2}"
-  local alert_email="${3}"
+  local email_recipients="${3}"
   local last_email_sent_file="${4}"
 
   local current_time
@@ -94,7 +96,7 @@ send_email_with_throttle() {
 
   if [[ -z ${last_email_sent_time} || ${time_elapsed} -ge 150 ]]; then
     {
-      echo -e "Subject: [${mail_subject}] - [$(hostname)] - [$(date '+%Y-%m-%d %H:%M')] \nTo: ${alert_email}\n\n${message}"
+      echo -e "Subject: [${email_subject}] - [$(hostname -f)] - [$(date '+%Y-%m-%d %H:%M')] \nTo: ${email_recipients}\n\n${message}"
     } | sendmail -t || {
       ssh_system_log "ERROR" "Alert mail could not be sent."
     }
@@ -108,49 +110,25 @@ send_email_with_throttle() {
   fi
 }
 
-# Initialize variables
-initialize_variables() {
-  last_email_sent_file="/tmp/last_email_sent_time"
-  last_check_file="/tmp/last_ssh_check"
-
-  error_log_file="/var/log/ssh_monitor_error.log"
-  default_alert_email="example.eg@example.com"
-  default_alert_threshold=1
-  default_mail_subject="SSH Monitor Alert"
-
-  service_file="/etc/systemd/system/ssh_monitor.service"
-  service_name="ssh_monitor.service"
-  service_description="SSH Monitor Service"
-
-  script_dir=$(dirname "$(readlink -f "$0")")
-  local_config_file="${script_dir}/ssh_monitor_config"
-
-  local default_log_file="/var/log/ssh_monitor.log"
-  log_file="${default_log_file}"
-
-  alert_email="${default_alert_email}"
-  alert_threshold="${default_alert_threshold}"
-  mail_subject="${default_mail_subject}"
-}
-
 # Load configuration from the local config file
 # shellcheck disable=SC1091
 load_config() {
   local local_config_file="$1"
   local log_file="$2"
   local error_log_file="$3"
-  local default_alert_email="$4"
-  local default_alert_threshold="$5"
-  local default_mail_subject="$6"
+  local recipients="$4"
+  local email_alert_threshold="$5"
+  local email_subject="$6"
 
   if [[ -f ${local_config_file} ]]; then
     ssh_system_log "INFO" "Attempting to load configuration from ${local_config_file}" "${log_file}"
+    echo "Loading configuration from ${local_config_file}"
     # shellcheck source=./$local_config_file
     source "${local_config_file}"
-    ssh_system_log "INFO" "Loaded configuration from ${local_config_file}" "${log_file}"
+    echo "Loaded configuration from ${local_config_file}"
   else
     ssh_system_log "ERROR" "Configuration file not found. Using default settings." "${error_log_file}"
-    generate_default_config "${local_config_file}" "${log_file}" "${error_log_file}" "${default_alert_email}" "${default_alert_threshold}" "${default_mail_subject}"
+    generate_default_config "${local_config_file}" "${log_file}" "${error_log_file}" "${recipients}" "${email_alert_threshold}" "${email_subject}"
   fi
 }
 
@@ -159,18 +137,20 @@ generate_default_config() {
   local local_config_file="$1"
   local log_file="$2"
   local error_log_file="$3"
-  local default_alert_email="$4"
-  local default_alert_threshold="$5"
-  local default_mail_subject="$6"
+  local recipients="$4"
+  local email_alert_threshold="$5"
+  local email_subject="$6"
 
+# Generate the default configuration if it doesn't exist - used to populate the environment variables via source
   if [[ ! -f ${local_config_file}   ]]; then
     cat <<- EOF > "${local_config_file}"
       log_file="${log_file}"
       error_log_file="${error_log_file}"
-      alert_email="${default_alert_email}"
-      alert_threshold="${default_alert_threshold}"
-      mail_subject="${default_mail_subject}"
+      recipients="${recipients}"
+      email_alert_threshold="${email_alert_threshold}"
+      email_subject="${email_subject}"
 EOF
+
     ssh_system_log "INFO" "Default configuration file generated at ${local_config_file}" "${log_file}"
   else
     ssh_system_log "INFO" "Configuration file already exists. Skipping generation." "${log_file}"
@@ -186,13 +166,15 @@ create_daemon_service() {
   local description="$5"
   local service_name="$6"
 
+  echo "Creating service file at ${service_file}"
+
   {
     cat <<- EOF
       [Unit]
       Description=${description}
 
       [Service]
-      ExecStart=${script_dir}/$(dirname "$0")/standalones/sshd/setup_ssh_intrusion_detection.sh
+      ExecStart=${script_dir}/$(basename "$0")
       Restart=always
 
       [Install]
@@ -219,9 +201,11 @@ manage_daemon() {
   local service_name="$5"
   local description="$6"
 
+  echo "Managing the SSH Monitor daemon..."
+
   case "$7" in
     install)
-      create_daemon_service "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${description}" "${service_name}" || return 1
+      create_daemon_service "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${description}" "${service_name}"
       ;;
     status)
       systemctl status "${service_name}" || ssh_system_log "ERROR" "Failed to get status of the ${service_name} daemon." "${error_log_file}"
@@ -244,9 +228,14 @@ manage_daemon() {
 handle_ssh_threshold_exceeds() {
   local session_count="$1"
   local session_details="$2"
-  if ((session_count >= alert_threshold)); then
+  local email_alert_threshold="$3"
+  local email_subject="$4"
+  local recipients="$5"
+  local last_email_sent_file="$6"
+
+  if ((session_count >= email_alert_threshold)); then
     local message="Alert: High number of SSH logins detected. Count: ${session_count}\n\nSession Details:\n${session_details}"
-    send_email_with_throttle "${mail_subject}" "${message}" "${alert_email}" "${last_email_sent_file}"
+    send_email_with_throttle "${email_subject}" "${message}" "${recipients}" "${last_email_sent_file}"
     ssh_system_log "INFO" "Checked SSH session count (${session_count}) against threshold." "${log_file}"
   else
     ssh_system_log "INFO" "SSH session count (${session_count}) is below the threshold." "${log_file}"
@@ -255,6 +244,14 @@ handle_ssh_threshold_exceeds() {
 
 # Manage SSH sessions
 handle_ssh_sessions() {
+  local email_alert_threshold="${1}"
+  local email_subject="${2}"
+  local recipients="${3:-root@$(hostname -f)}"
+  local last_email_sent_file="${4}"
+  local error_log_file="${5}"
+
+  local last_check_file="/tmp/last_ssh_check"
+
   # Get the current time in the format: YYYY-MM-DD HH:MM
   local now
   now=$(date '+%Y-%m-%d %H:%M')
@@ -263,10 +260,10 @@ handle_ssh_sessions() {
   local twenty_seconds_ago
   twenty_seconds_ago=$(date '+%Y-%m-%d %H:%M' -d "20 seconds ago")
 
-  # Use the corrected format for 'last' command's time range filtering
   local ssh_sessions
+
   ssh_sessions=$(last -s "${twenty_seconds_ago}" -t "${now}" | grep 'pts/' | sort | uniq -c) || {
-    ssh_system_log "ERROR" "Unable to fetch SSH session data using 'last' command." "${error_log_file}"
+    ssh_system_log "INFO" "No SSH sessions found in this interval." "${log_file}"
     return 1
   }
 
@@ -276,11 +273,11 @@ handle_ssh_sessions() {
   }
 
   if [[ -n ${ssh_sessions} ]]; then
-    log_session_data "${ssh_sessions}"
+    log_session_data "${ssh_sessions}" "${error_log_file}"
     ssh_system_log "INFO" "Logged SSH sessions data." "${log_file}"
     local session_count
     session_count=$(echo "${ssh_sessions}" | wc -l)
-    handle_ssh_threshold_exceeds "${session_count}" "${ssh_sessions}"
+    handle_ssh_threshold_exceeds "${session_count}" "${ssh_sessions}" "${email_alert_threshold}" "${email_subject}" "${recipients}" "${last_email_sent_file}"
   else
     ssh_system_log "INFO" "No SSH sessions found in this interval." "${log_file}"
   fi
@@ -288,6 +285,8 @@ handle_ssh_sessions() {
 
 # Log session data to the ssh_system_log file
 log_session_data() {
+  local error_log_file="${1}"
+
   local line
   while read -r line; do
     if [[ ! -f ${log_file}   ]]; then
@@ -307,7 +306,7 @@ log_session_data() {
       ssh_system_log "ERROR" "Unable to write to ssh_system_log file." "${error_log_file}"
       return 1
     }
-  done <<< "$1"
+  done <<< "$2"
 }
 
 # Rotate ssh_system_log files if they exceed the given size
@@ -329,6 +328,10 @@ rotate_logs() {
 
 # Handle file checks
 handle_file_checks() {
+  local last_check_file="${1}"
+  local last_email_sent_file="${2}"
+  local error_log_file="${3}"
+
   local files_to_check
   files_to_check=(
     "${log_file}"
@@ -350,18 +353,41 @@ main() {
   check_root
   echo "Initializing SSHD IDS..."
 
-  initialize_variables
-  handle_file_checks
-  load_config "${local_config_file}" "${log_file}" "${error_log_file}" "${default_alert_email}" "${default_alert_threshold}" "${default_mail_subject}"
+  local service_name="ssh_monitor.service"
+  local service_file="/etc/systemd/system/${service_name}"
+  local service_description="SSH Monitor Service"
+
+  local last_email_sent_file="/tmp/last_email_sent_time"
+  local email_alert_threshold=1
+  local email_subject="SSH Monitor Alert"
+
+  local last_check_file="/tmp/last_ssh_check"
+
+  local script_dir
+  script_dir=$(dirname "$(readlink -f "$0")")
+  local local_config_file="${script_dir}/ssh_monitor_config"
+
+  local default_log_file="/var/log/ssh_monitor.log"
+  local error_log_file="/var/log/ssh_monitor_error.log"
+  log_file="${default_log_file}"
+
+  # Set the email recipients from command line arguments
+  local install_flag="$1"
+  local recipients="${2:-root@$(hostname -f)}"
+
+  handle_file_checks "${last_check_file}" "${last_email_sent_file}" "${error_log_file}"
+  load_config "${local_config_file}" "${log_file}" "${error_log_file}" "${recipients}" "${email_alert_threshold}" "${email_subject}"
 
   # if no arguments are passed to the script, execute the main loop
-
-  if [[ $# -eq 0 ]]; then
-    echo "Starting SSHD IDS..."
-    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "install"
-  elif [[ $1 =~ ^(install|status|stop|disable)$ ]]; then
-    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "$1"
+  if [[ $1 =~ ^(install|status|stop|disable)$ ]]; then
+    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "${install_flag}"
   else
+
+    command -v last >/dev/null 2>&1 || {
+      ssh_system_log "ERROR" "The 'last' command is not available. Please install the 'sysstat' package." "${error_log_file}"
+      exit 1
+    }
+
     local cycle_duration=20
     while true; do
       rotate_logs "${log_file}" 1024
@@ -370,7 +396,7 @@ main() {
       local start_time
       start_time=$(date +%s)
 
-      handle_ssh_sessions || ssh_system_log "ERROR" "Error occurred during SSH session logging." "${error_log_file}"
+      handle_ssh_sessions "${email_alert_threshold}" "${email_subject}" "${recipients}" "${last_email_sent_file}" "${error_log_file}"
 
       local end_time elapsed sleep_duration
       end_time=$(date +%s)

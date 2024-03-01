@@ -35,7 +35,40 @@ Modify the default ip (5.5.5.5) in `/hardening/standalones/fail2ban/setup_fail2b
 
 ### Execution
 
-The script can be executed directly or as a series of individual standalone scripts.
+The script can be executed directly or as a series of individual standalone scripts. 
+- SSH key mappings can be configured to automatically allow PKE access to certain user accounts via SSH.
+- Access to the server can be restricted to specific users by modifying the `allowed_ssh_users` csv list.
+- Whitelisted IPs can be added to the `ip_whitelist` csv list to prevent them from being banned by Fail2Ban.
+- Email alerts can be configured by modifying the `sender` and `recipients` variables respectively.
+
+```bash
+# User mappings for SSH public keys
+# Format: "UserName:Algorithm Public_Key Comment"
+# Example: "admin:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null"
+# Example: "void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe void@null"
+allowed_ssh_pk_user_mappings="admin:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null
+void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe example.eg@example.com"
+
+# Users allowed to login via SSH
+# Format: "UserName"
+# Example: "admin"
+# Example: "admin,void"
+allowed_ssh_users="admin,void"
+
+# IP Whitelist for Fail2Ban 
+# Format: "IP/CIDR"
+# Example: "1.1.1.1/32,2.2.2.2/32"
+ip_whitelist="1.1.1.1/32,2.2.2.2/32"
+
+# Email settings for sending notifications
+# Sender format: "<email>@<domain>"
+# Example: "example@domain.com"
+# Recipients format: "<email>@<domain>,<email>@<domain>"
+# Example: "example@domain.com,example1@domain.com"
+sender="void@ex.com.au"
+recipients="void.recip@ex.com,example1@domain.com"
+
+```
 
 Directly as a single script
 ```bash
@@ -47,8 +80,14 @@ chmod +x automated_hardening.sh
 Or as a series of individual standalone scripts
 ```bash
 cd /hardening/standalones
-find . -type f -name '*.sh' -exec bash {} \;
+find . -type f -name '*.sh' -exec sudo bash {} \;
 ```
+
+To skip the installation of a specific toolkit, you can use the following command: 
+```bash
+cd /hardening/standalones
+find . -type f -name '*.sh' ! -name 'setup_ssh_intrusion_detection.sh' -exec sudo bash {} \; # Skip SSH Intrusion Detection
+```**
 
 Or individually
 ```bash
@@ -56,6 +95,10 @@ cd /hardening/standalones
 chmod +x *.sh
 ./setup_auditd.sh
 # etc...
+```
+
+Certain toolkits provide commandline arguments which can be used to enable email alerts and more specialized use cases. 
+```bash
 ```
 
 # Roadmap

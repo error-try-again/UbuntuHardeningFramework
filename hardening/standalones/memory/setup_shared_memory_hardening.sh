@@ -7,8 +7,10 @@ set -euo pipefail
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0   ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }

@@ -28,7 +28,7 @@ inject_public_keys() {
   home_directory=$(getent passwd "${username}" | cut -d: -f6)
 
   # Check if home directory was successfully retrieved.
-  if [[ -z "${home_directory}" || ! -d "${home_directory}" ]]; then
+  if [[ -z ${home_directory} || ! -d ${home_directory}     ]]; then
     echo "Unable to find or access the home directory for ${username}. Skipping..." >&2
   else
     echo "Home directory for ${username} found at: ${home_directory}"
@@ -42,14 +42,14 @@ inject_public_keys() {
   authorized_keys_file="${ssh_directory}/authorized_keys"
 
   # Ensure .ssh directory exists, with proper permissions and ownership.
-  if [[ ! -d "${ssh_directory}" ]]; then
+  if [[ ! -d ${ssh_directory}   ]]; then
     echo "Creating .ssh directory for ${username}..."
     mkdir -p "${ssh_directory}" && chmod 700 "${ssh_directory}"
     chown "${username}":"${username}" "${ssh_directory}"
   fi
 
   # Ensure authorized_keys file exists, with proper permissions.
-  if [[ ! -f "${authorized_keys_file}" ]]; then
+  if [[ ! -f ${authorized_keys_file}   ]]; then
     echo "Creating authorized_keys file for ${username}..."
     touch "${authorized_keys_file}" && chmod 600 "${authorized_keys_file}"
     chown "${username}":"${username}" "${authorized_keys_file}"
@@ -67,7 +67,7 @@ inject_public_keys() {
   local key_added=0
   local key
   while IFS= read -r key; do
-    if [[ -n "${key}" ]] && ! grep -q -F "${key}" "${authorized_keys_file}"; then
+    if [[ -n ${key}   ]] && ! grep -q -F "${key}" "${authorized_keys_file}"; then
       echo "${key}" >> "${temp_file}"
       key_added=1
     else
@@ -92,7 +92,7 @@ inject_keys_for_all_users() {
     local keys="${user_ssh_keys_map[${username}]}"
     # Handle keys as newline-separated strings
 
-    if ! id "${username}" &>/dev/null; then
+    if ! id "${username}" &> /dev/null; then
       echo "Moving to the next user..."
       continue
     else
@@ -136,17 +136,29 @@ EOF
 }
 
 # Usage message
-print_usage() {
+usage() {
   cat << EOF
-Usage: ${0} [OPTIONS]
+# Usage
+${0} [OPTIONS]
 
-Options:
-  -p  Specify SSH port (default: 22)
-  -u  Specify a comma-separated list of allowed users (space separated)
-  -k  Specify path to a file containing a list of allowed users and mapped to their public keys. The file should be in the format is newline-separated, with each line containing a username and their public keys separated by a colon.Example: "void:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null
-admin:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null,ssh-ed2551 ...AAIDk7VFe example.eg@example.com"
-  -f Specify path to a file containing a list of allowed ssh users. The file should be a list of space separated usernames.
+# Example
+${0} -p 2222 -f /path/to/allowed_users.txt -k /path/to/allowed_users_keys.txt
+
+# Options
+  -p  Specify SSH port (default: 22) (optional)
+  -f  Specify path to a file containing a list of allowed ssh users. The file should be a list of space separated usernames. (mandatory)
+  -k  Specify path to a file containing a list of allowed users and mapped to their public keys. (mandatory)
   -h  Display this help message
+
+# File Formats
+allowed_user_keys.txt (username:ssh-rsa key1,key2,key3)
+
+  void:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null
+  admin:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null,ssh-ed2551 ...AAIDk7VFe example.eg@example.com
+
+allowed_users.txt (user1,user2,user3)
+
+  void,admin
 
 EOF
 }
@@ -180,7 +192,7 @@ parse_user_ssh_keys() {
   done
 
   # Optionally, parse from a file if specified
-  if [[ -n "${allowed_users_list_path}" && -f "${allowed_users_list_path}" ]]; then
+  if [[ -n ${allowed_users_list_path} && -f ${allowed_users_list_path}     ]]; then
     local line
     while IFS= read -r line; do
       local username keys
@@ -195,26 +207,36 @@ parse_user_ssh_keys() {
 # Parse allowed SSH users from a comma-separated string or a file
 parse_allowed_ssh_users() {
   echo "Parsing allowed SSH users..."
-  # If command-line list is provided
-  if [[ -n "$1" ]]; then
+
+  # Declare an associative array locally within the function
+  declare -A allowed_ssh_users
+
+  # Check if a command-line argument is provided
+  if [[ -n ${1-}   ]]; then
     local users_array
     IFS=',' read -r -a users_array <<< "$1"
     local user_entry
     for user_entry in "${users_array[@]}"; do
-      local username="${user_entry%%:*}"  # Extract username before ':'
-      local keys="${user_entry#*:}"  # Extract keys after ':'
+      local keys
+      IFS=':' read -r username keys <<< "${user_entry}"
       allowed_ssh_users["${username}"]="${keys}"
     done
 
-  # If file path is provided and the file exists
-  elif [[ -f "$2" ]]; then
+  # Check if a file path is provided and the file exists
+  elif [[ -n ${2-} && -f $2     ]]; then
     while IFS=: read -r username keys; do
       allowed_ssh_users["${username}"]="${keys}"
     done < "$2"
   else
     echo "Error: No valid user input provided or file does not exist." >&2
-    exit 1
+    return 1
   fi
+
+  # Print the parsed users and keys for verification
+  local user
+  for user in "${!allowed_ssh_users[@]}"; do
+    echo "User: ${user}, Keys: ${allowed_ssh_users[${user}]}"
+  done
 }
 
 # Backup sshd_config file with dynamic naming
@@ -382,12 +404,12 @@ generate_allow_users_list() {
   local allow_users_list=""
 
   # Check if the users list file exists and is readable
-  if [[ -f "${allowed_users_list_path}" && -r "${allowed_users_list_path}" ]]; then
+  if [[ -f ${allowed_users_list_path} && -r ${allowed_users_list_path} ]]; then
     # Placeholder to ignore the second field
     local rest
     # Read the file line by line and append the username to the allow_users_list
     while IFS=: read -r username rest; do
-      if [[ -n "${username}" ]]; then
+      if [[ -n ${username}   ]]; then
         # Append username to allow_users_list, separated by commas
         allow_users_list="${allow_users_list:+${allow_users_list},}${username}"
       fi
@@ -418,7 +440,7 @@ apply_configurations() {
                               echo "${allowed_ssh_users[*]}"
   )
 
-  if [[ -z "${allow_users_list}" ]]; then
+  if [[ -z ${allow_users_list}   ]]; then
     echo "No users to allow via SSH. Check the users list file."
     return 1
   fi
@@ -524,10 +546,15 @@ main() {
 
   local ssh_port="22"  # Default value, modify this for your system.
 
-  # Default values for allowed users and their keys if not specified via command-line arguments or files.
-  local allowed_users_ssh_key_mapping="admin:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null
-void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe example.eg@example.com"
-  local allowed_users="void,admin"
+  local allowed_users_ssh_key_mapping allowed_users
+
+  if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+  else
+    local allowed_users_ssh_key_mapping="$1"
+    local allowed_users="$2"
+  fi
 
   # Default paths for allowed users and their keys if not specified via command-line arguments.
   local allowed_users_list_path="allowed_users.txt"

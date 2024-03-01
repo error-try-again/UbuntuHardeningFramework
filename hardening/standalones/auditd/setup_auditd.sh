@@ -4,10 +4,18 @@ set -euo pipefail
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0   ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
+}
+
+usage() {
+  echo "Usage: $0 <recipient_email_addresses> <sender_email_address>"
+  echo "Example: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com"
+  exit 1
 }
 
 # Log messages to a log file
@@ -63,41 +71,42 @@ view_auditd_config() {
 # Write an audit email reporting script to the specified location
 write_auditd_reporting() {
   local script_location="$1"
+  local email_recipients="$2"
+  local sender="$3"
 
-  cat << 'EOF' >> "${script_location}"
+  cat << EOF > "${script_location}"
 #!/usr/bin/env bash
 
 # Log a message to the log file
 log() {
-  local message="$1"
+  local message="\$1"
   local date
-  date=$(date +'%Y-%m-%d %H:%M:%S')
-  echo "${date} - ${message}" >> "${log_file}"
+  date=\$(date +'%Y-%m-%d %H:%M:%S')
+  echo "\${date} - \${message}" >> "\${log_file}"
 }
 
 # Generate and output an audit report
 generate_aurp_report() {
   local report
-  report=$(aureport --summary -i -ts today)
-  echo "${report}"
+  report=\$(aureport --summary -i -ts today)
+  echo "\${report}"
 }
 
 # Send a recipient with the audit report using sendmail
 send_auditd_report() {
   # Set the recipient address where the report will be sent
-  local recipient="$1"
-  local sender="$2"
-  local mail_tool="$3"
-  local subject="$4"
-  local report="$5"
+  local recipient="\$1"
+  local mail_tool="\$2"
+  local subject="\$3"
+  local report="\$4"
 
   # Check if the report contains relevant information
-  if [[ -n ${report} ]]; then
+  if [[ -n \${report} ]]; then
     # Send a recipient with the report using sendmail
-    if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${report}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
+    if ! echo -e "Subject: \${subject}\nTo: \${recipient}\nFrom: ${sender}\n\n\${report}" | \${mail_tool} -f "${sender}" -t "\${recipient}"; then
       log "Error: Failed to send email."
     else
-      log "Email sent: ${subject}"
+      log "Email sent: \${subject}"
     fi
     log "Audit report sent."
   else
@@ -109,23 +118,19 @@ send_auditd_report() {
 # Main function
 main() {
   log_file="/var/log/audit-report.log"
-  local sender="example1.eg@example.com"
   local mail_tool="sendmail"
 
-  local hostname subject
-  hostname=$(hostname)
-  subject="[${hostname}] - [Auditd Review Report] - [$(date +'%Y-%m-%d')]"
+  subject="[$(hostname -f)] - [Auditd Review Report] - [\$(date +'%Y-%m-%d')]"
 
   local report
-  report="$(generate_aurp_report)"
+  report="\$(generate_aurp_report)"
 
   # Add Comma separated email addresses of the recipients to the variable
-  # Example: "example.eg@example.com,example@gmail.com"
-  local recipients="example.eg@example.com"
-  send_auditd_report "${recipients}" "${sender}" "${mail_tool}" "${subject}" "${report}"
+  local recipients="${email_recipients}"  # Directly inserting the variable value
+  send_auditd_report "\${recipients}" "\${mail_tool}" "\${subject}" "\${report}"
 }
 
-main "$@"
+main "\$@"
 EOF
 
   chmod +x "${script_location}"
@@ -191,6 +196,13 @@ update_cron_job() {
 # Installs a list of apt packages
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
+
+  # Verify that there is no apt lock
+  while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+    echo "Waiting for other software managers to finish..." >&2
+    sleep 1
+  done
+
   apt update -y || { log "Failed to update package lists..."; exit 1; }
   local package
   for package in "${package_list[@]}"; do
@@ -216,6 +228,9 @@ main() {
   check_root
   echo "Initializing Auditd..."
 
+  local recipients="${1:-root@$(hostname -f)}" # Default recipient email if not provided
+  local sender="${2:-root@$(hostname -f)}" # Default sender email if not provided
+
   install_apt_packages "auditd"
   configure_audit_rules
   configure_auditd_logging
@@ -225,13 +240,13 @@ main() {
   enable_service "auditd"
   restart_service "auditd"
 
-  view_auditd_config
+#  view_auditd_config
   show_auditd_aureport
 
   local script_location="/usr/local/bin/audit-report.sh"
   local log_file="/var/log/audit-report.log"
 
-  write_auditd_reporting "${script_location}"
+  write_auditd_reporting "${script_location}" "${recipients}" "${sender}"
   update_cron_job "${script_location}" "${log_file}"
 }
 

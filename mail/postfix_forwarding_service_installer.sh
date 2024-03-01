@@ -155,7 +155,7 @@ enable_aliases() {
 
 # Inserts the canonical sender configuration in main.cf to rewrite the sender address.
 insert_sender_canonical() {
-  local new_canonical_sender="example1.eg@example.com"
+  local new_canonical_sender="$1"
   local sender_canonical_config_string="sender_canonical_maps = static:${new_canonical_sender}"
   if ! grep -q "${sender_canonical_config_string}" /etc/postfix/main.cf; then
     echo "${sender_canonical_config_string}" >> /etc/postfix/main.cf
@@ -254,7 +254,7 @@ main() {
   update_postfix_config "readme_directory" "/usr/share/doc/postfix/readme" "${main_cf}"
 
   # Ensures that all mail is sent from the same address
-  insert_sender_canonical
+  insert_sender_canonical "example1.eg@example.com"
 
   configure_sasl_passwd "${sasl_passwd}" "${ses_mta}"
 

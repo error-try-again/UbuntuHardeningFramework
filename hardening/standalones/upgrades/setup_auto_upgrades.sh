@@ -4,8 +4,10 @@ set -euo pipefail
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0   ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }
@@ -49,12 +51,13 @@ update_cron_job() {
 configure_auto_updates() {
   # Configure automatic updates
   local config_file="/etc/apt/apt.conf.d/50unattended-upgrades"
+  local recipients="${1}"
 
   # Define the lines to insert
   declare -A updates=(
           ["Unattended-Upgrade::DevRelease"]='"auto";'
           ["Unattended-Upgrade::MinimalSteps"]='"true";'
-          ["Unattended-Upgrade::Mail"]='"example.eg@example.com";'
+          ["Unattended-Upgrade::Mail"]="\"${recipients}\";"
           ["Unattended-Upgrade::MailReport"]='"always";'
           ["Unattended-Upgrade::Remove-Unused-Kernel-Packages"]='"false";'
           ["Unattended-Upgrade::Automatic-Reboot-WithUsers"]='"true";'
@@ -94,6 +97,13 @@ EOF
 # Installs a list of apt packages
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
+
+  # Verify that there is no apt lock
+  while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+    echo "Waiting for other software managers to finish..." >&2
+    sleep 1
+  done
+
   apt update -y || { log "Failed to update package lists..."; exit 1; }
   local package
   for package in "${package_list[@]}"; do
@@ -117,9 +127,12 @@ install_apt_packages() {
 # Main
 main() {
   check_root
+
   echo "Initializing unattended-upgrades..."
+  local recipients="${1:-root@$(hostname -f)}" # Default recipient email if not provided
+
   install_apt_packages "debconf-utils" "unattended-upgrades"
-  configure_auto_updates
+  configure_auto_updates "${recipients}"
 }
 
 main "$@"

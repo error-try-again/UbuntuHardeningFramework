@@ -4,8 +4,10 @@ set -euo pipefail
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0   ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }
@@ -17,9 +19,22 @@ log() {
   date=$(date +'%Y-%m-%d %H:%M:%S')
 }
 
+usage() {
+  echo "Usage: $0 <recipient_email_addresses> <sender_email_address>"
+  echo "Example: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com"
+  exit 1
+}
+
 # Installs a list of apt packages
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
+
+  # Verify that there is no apt lock
+  while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+    echo "Waiting for other software managers to finish..." >&2
+    sleep 1
+  done
+
   apt update -y || { log "Failed to update package lists..."; exit 1; }
   local package
   for package in "${package_list[@]}"; do
@@ -42,44 +57,56 @@ install_apt_packages() {
 
 # Configures rkhunter to run daily and email results
 configure_rkhunter() {
-    # Modify the UPDATE_MIRRORS and MIRRORS_MODE settings in /etc/rkhunter.conf to enable the use of mirrors
-    sed -i -e 's|^[#]*[[:space:]]*UPDATE_MIRRORS=.*|UPDATE_MIRRORS=1|' /etc/rkhunter.conf
-    sed -i -e 's|^[#]*[[:space:]]*MIRRORS_MODE=.*|MIRRORS_MODE=0|' /etc/rkhunter.conf
+  local recipients="$1"
+  local sender="$2"
 
-    # Modify the APPEND_LOG setting in /etc/rkhunter.conf to ensure that logs are appended rather than overwritten
-    sed -i -e 's|^[#]*[[:space:]]*APPEND_LOG=.*|APPEND_LOG=1|' /etc/rkhunter.conf
+  # Modify the UPDATE_MIRRORS and MIRRORS_MODE settings in /etc/rkhunter.conf to enable the use of mirrors
+  sed -i -e 's|^[#]*[[:space:]]*UPDATE_MIRRORS=.*|UPDATE_MIRRORS=1|' /etc/rkhunter.conf
+  sed -i -e 's|^[#]*[[:space:]]*MIRRORS_MODE=.*|MIRRORS_MODE=0|' /etc/rkhunter.conf
 
-    # Modify the USE_SYSLOG setting in /etc/rkhunter.conf to enable the use of syslog integration
-    sed -i "s|^USE_SYSLOG=.*|USE_SYSLOG=authpriv.warning|" /etc/rkhunter.conf
+  # Modify the APPEND_LOG setting in /etc/rkhunter.conf to ensure that logs are appended rather than overwritten
+  sed -i -e 's|^[#]*[[:space:]]*APPEND_LOG=.*|APPEND_LOG=1|' /etc/rkhunter.conf
 
-    # Modify the WEB_CMD setting in /etc/rkhunter.conf to disable the use of the web command
-    sed -i "s|^WEB_CMD=.*|WEB_CMD=|" /etc/rkhunter.conf
+  # Modify the USE_SYSLOG setting in /etc/rkhunter.conf to enable the use of syslog integration
+  sed -i "s|^USE_SYSLOG=.*|USE_SYSLOG=authpriv.warning|" /etc/rkhunter.conf
 
-    # Use GLOBSTAR to improve comprehensive file pattern matching.
-    # sed -i -e 's|^[#]*[[:space:]]*GLOBSTAR=.*|GLOBSTAR=1|' /etc/rkhunter.conf
+  # Modify the WEB_CMD setting in /etc/rkhunter.conf to disable the use of the web command
+  sed -i "s|^WEB_CMD=.*|WEB_CMD=|" /etc/rkhunter.conf
 
-    # Adjust ENABLE_TESTS and DISABLE_TESTS to enable all tests
-    sed -i -e 's|^[#]*[[:space:]]*ENABLE_TESTS=.*|ENABLE_TESTS=ALL|' /etc/rkhunter.conf
-    sed -i -e 's|^[#]*[[:space:]]*DISABLE_TESTS=.*|DISABLE_TESTS=None|' /etc/rkhunter.conf
+  # Use GLOBSTAR to improve comprehensive file pattern matching.
+  # sed -i -e 's|^[#]*[[:space:]]*GLOBSTAR=.*|GLOBSTAR=1|' /etc/rkhunter.conf
 
-    # set the default installer values so that
-    echo "rkhunter rkhunter/apt_autogen boolean true" | debconf-set-selections
-    echo "rkhunter rkhunter/cron_daily_run boolean true" | debconf-set-selections
-    echo "rkhunter rkhunter/cron_db_update boolean true" | debconf-set-selections
+  # Adjust ENABLE_TESTS and DISABLE_TESTS to enable all tests
+  sed -i -e 's|^[#]*[[:space:]]*ENABLE_TESTS=.*|ENABLE_TESTS=ALL|' /etc/rkhunter.conf
+  sed -i -e 's|^[#]*[[:space:]]*DISABLE_TESTS=.*|DISABLE_TESTS=None|' /etc/rkhunter.conf
 
-    # use dpkg-reconfigure using debian standard packaging with non-interactive mode
-    dpkg-reconfigure debconf -f noninteractive
+  # set the default installer values so that
+  echo "rkhunter rkhunter/apt_autogen boolean true" | debconf-set-selections
+  echo "rkhunter rkhunter/cron_daily_run boolean true" | debconf-set-selections
+  echo "rkhunter rkhunter/cron_db_update boolean true" | debconf-set-selections
 
-    # Modify /etc/default/rkhunter to enable daily runs and database updates
-    sed -i -e 's|^[#]*[[:space:]]*CRON_DAILY_RUN=.*|CRON_DAILY_RUN="true"|' /etc/default/rkhunter # enable daily runs
-    sed -i -e 's|^[#]*[[:space:]]*CRON_DB_UPDATE=.*|CRON_DB_UPDATE="true"|' /etc/default/rkhunter # enable database updates
-    sed -i -e 's|^[#]*[[:space:]]*REPORT_EMAIL=.*|REPORT_EMAIL=example.eg@example.com|' /etc/default/rkhunter # set the email address to send reports to
-    sed -i -e 's|^[#]*[[:space:]]*DB_UPDATE_EMAIL=.*|DB_UPDATE_EMAIL="true"|' /etc/default/rkhunter # enable database update emails
-    sed -i -e 's|^[#]*[[:space:]]*APT_AUTOGEN=.*|APT_AUTOGEN="true"|' /etc/default/rkhunter # enable automatic updates
+  # use dpkg-reconfigure using debian standard packaging with non-interactive mode
+  dpkg-reconfigure debconf -f noninteractive
+
+  # Modify /etc/default/rkhunter to enable daily runs and database updates
+  sed -i -e 's|^[#]*[[:space:]]*CRON_DAILY_RUN=.*|CRON_DAILY_RUN="true"|' /etc/default/rkhunter # enable daily runs
+  sed -i -e 's|^[#]*[[:space:]]*CRON_DB_UPDATE=.*|CRON_DB_UPDATE="true"|' /etc/default/rkhunter # enable database updates
+  sed -i -e 's|^[#]*[[:space:]]*APT_AUTOGEN=.*|APT_AUTOGEN="true"|' /etc/default/rkhunter # enable automatic updates
+
+  # Email settings for rkhunter
+  sed -i -e 's|^[#]*[[:space:]]*REPORT_EMAIL=.*|REPORT_EMAIL="'"${recipients}"'"|' /etc/default/rkhunter # set the email recipient
+  sed -i -e 's|^[#]*[[:space:]]*DB_UPDATE_EMAIL=.*|DB_UPDATE_EMAIL="true"|' /etc/default/rkhunter # enable database update emails
+
+  # Set the sender email for rkhunter if it doesn't exist
+  grep -qE "^REPORT_SENDER=" /etc/default/rkhunter || { echo "# Report sender email" >> /etc/default/rkhunter && echo "REPORT_SENDER=\"${sender}\"" >> /etc/default/rkhunter; }
+
+  # Replace the sender if it exists in the file
+  sed -i -e 's|^[[:space:]]*#*\s*REPORT_SENDER=.*|REPORT_SENDER="'"${sender}"'"|' /etc/default/rkhunter # Replace the sender email if it exists
 
 }
 
 write_rkhunter_weekly() {
+
   cat <<'EOF' > /etc/cron.weekly/rkhunter
 #!/usr/bin/env bash
 
@@ -95,8 +122,10 @@ system_log() {
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0 ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }
@@ -127,20 +156,17 @@ send_email() {
   local content="$2"
   local recipient="$3"
 
-  local sender
-  sender="example1.eg@example.com"
-
   local mail_tool="sendmail"
 
   local hostname
-  hostname=$(hostname)
+  hostname=$(hostname -f)
 
   if [[ -z ${recipient} ]]; then
     system_log "ERROR" "Email recipient not specified." "${log_file}"
     return 1
   fi
 
-  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${content}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
+  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${REPORT_SENDER}\n\n${content}" | ${mail_tool} -f "${REPORT_SENDER}" -t "${recipient}"; then
     system_log "ERROR" "Failed to send email." "${log_file}"
   else
     system_log "INFO" "Email sent: ${subject}" "${log_file}"
@@ -177,7 +203,7 @@ handle_updates() {
     local hostname
 
     report_content=$(cat "${report_file}")
-    hostname=$(hostname)
+    hostname=$(hostname -f)
 
     local report_date
     report_date=$(date '+%Y-%m-%d')
@@ -238,8 +264,10 @@ system_log() {
 
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0 ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }
@@ -270,20 +298,17 @@ send_email() {
   local content="$2"
   local recipient="$3"
 
-  local sender
-  sender="example1.eg@example.com"
-
   local mail_tool="sendmail"
 
   local hostname
-  hostname=$(hostname)
+  hostname=$(hostname -f)
 
   if [[ -z ${recipient} ]]; then
     system_log "ERROR" "Email recipient not specified." "${log_file}"
     return 1
   fi
 
-  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${sender}\n\n${content}" | ${mail_tool} -f "${sender}" -t "${recipient}"; then
+  if ! echo -e "Subject: ${subject}\nTo: ${recipient}\nFrom: ${REPORT_SENDER}\n\n${content}" | ${mail_tool} -f "${REPORT_SENDER}" -t "${recipient}"; then
     system_log "ERROR" "Failed to send email." "${log_file}"
   else
     system_log "INFO" "Email sent: ${subject}" "${log_file}"
@@ -308,7 +333,7 @@ handle_updates() {
     local hostname
 
     report_content=$(cat "${report_file}")
-    hostname=$(hostname)
+    hostname=$(hostname -f)
 
     local report_date
     report_date=$(date '+%Y-%m-%d')
@@ -357,8 +382,12 @@ EOF
 main() {
   check_root
   echo "Initializing rkhunter..."
+
+  local recipients="${1:-root@$(hostname -f)}" # Default recipient email if not provided
+  local sender="${2:-root@$(hostname -f)}" # Default sender email if not provided
+
   install_apt_packages "debconf-utils" "rkhunter"
-  configure_rkhunter
+  configure_rkhunter "${recipients}" "${sender}"
   write_rkhunter_weekly
   write_rkhunter_daily
 }

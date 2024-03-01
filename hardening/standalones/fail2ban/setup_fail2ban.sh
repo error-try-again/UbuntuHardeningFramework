@@ -10,10 +10,19 @@ log() {
   echo "${date} - ${message}"
 }
 
+usage() {
+  echo "Usage: $0 <recipient_email_addresses> <sender_email_address> <ip_list>"
+  echo "Example A: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com 5.5.5.5/32"
+  echo "Example B: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com 5.5.5.5/32,6.6.6.6/32"
+  exit 1
+}
+
 # Checks if the script is being run as root
 check_root() {
-  if [[ ${EUID} -ne 0   ]]; then
-    echo "Please run as root"
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -ne 0 ]]; then
+    echo "This script must be run as root. Exiting..." >&2
     exit 1
   fi
 }
@@ -71,8 +80,18 @@ backup_jail_config() {
 
 # Create a custom Fail2ban jail configuration for SSH protection
 create_jail_config() {
-  local custom_jail="${1}"
-  local ip_list="${2:-127.0.0.1}" # Default IP list to localhost if not provided
+  local custom_jail="${1}" # Path to the custom jail configuration
+  local recipients="${2:-example.eg@example.com}" # Default recipient email if not provided
+  local sender="${3:-example1.eg@example.com}" # Default sender email if not provided
+  local ip_list="${4:-""}" # Default IP list to empty if not provided
+  local ignore_ips
+
+  if [[ ${ip_list} == "" ]]; then
+    echo "No IP list provided. Proceeding without ignoring any IPs."
+    ignore_ips=""
+  else
+    ignore_ips="ignoreip = ${ip_list}"
+  fi
 
   # Check if parameters are provided
   if [[ -z ${custom_jail} ]]; then
@@ -89,10 +108,10 @@ create_jail_config() {
         logpath = /var/log/auth.log
         maxretry = 3
         findtime = 300
-        bantime = 86400
-        ignoreip = ${ip_list}
-        destemail = example.eg@example.com
-        sender = example1.eg@example.com
+        bantime = 604800
+        ${ignore_ips}
+        destemail = ${recipients}
+        sender = ${sender}
         sendername = Fail2Ban
         mta = sendmail
         action = %(action_mwl)s
@@ -125,12 +144,15 @@ ensure_file_is_writable() {
 # Installs a list of apt packages
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
-  apt update -y || { log "Failed to update package lists..."; exit 1; }
+  apt update -y || {
+                     log "Failed to update package lists..."
+                                                              exit 1
+  }
   local package
   for package in "${package_list[@]}"; do
     local dpkg_list
     dpkg_list=$(dpkg -l | grep -w "${package}")
-    if [[ -n "${dpkg_list}" ]]; then
+    if [[ -n ${dpkg_list}   ]]; then
       log "${package} is already installed."
     else
       # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error when running in parallel with other apt commands
@@ -152,8 +174,10 @@ main() {
 
   local custom_jail="/etc/fail2ban/jail.local"
   local fail2ban_log_file="/var/log/fail2ban-setup.log"
-  # TODO: Replace with the actual IP list of the server
-  local ip_list="5.5.5.5/32"
+
+  local recipients="${1:-root@$(hostname -f)}" # Default recipient email if not provided
+  local sender="${2:-root@$(hostname -f)}" # Default sender email if not provided
+  local ip_list="${3:-""}" # Default IP list to empty if not provided
 
   install_apt_packages "fail2ban"
 
@@ -167,11 +191,11 @@ main() {
   start_service "fail2ban"
   enable_service "fail2ban"
 
-  view_fail2ban_config
+#  view_fail2ban_config
   backup_jail_config
 
   # Create a custom Fail2ban jail configuration for SSH protection
-  create_jail_config "${custom_jail}" "${ip_list}"
+  create_jail_config "${custom_jail}" "${recipients}" "${sender}" "${ip_list}"
 
   # Restart Fail2ban service to apply the new configuration
   restart_service "fail2ban"
