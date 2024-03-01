@@ -67,6 +67,7 @@ configuration_warning() {
 
 # Sources the configuration file if present, then runs all preconfigured and standalone hardening scripts.
 # If the configuration file is missing, it skips preconfigured scripts and only runs standalone scripts.
+# TODO: Adjust cases to handle being run from arbitrary directories
 main() {
   if [[ -f configs/config.sh ]]; then
     echo "Configuration file found. Running all hardening scripts..."

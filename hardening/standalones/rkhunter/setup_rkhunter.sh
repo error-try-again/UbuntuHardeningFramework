@@ -29,30 +29,42 @@ usage() {
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
 
-  # Verify that there is no apt lock
-  while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-    echo "Waiting for other software managers to finish..." >&2
+  log "Starting package installation process."
+
+  # Verify that there are no apt locks
+  while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    log "Waiting for other software managers to finish..."
     sleep 1
   done
 
-  apt update -y || { log "Failed to update package lists..."; exit 1; }
+  if apt update -y; then
+    log "Package lists updated successfully."
+  else
+    log "Failed to update package lists. Continuing with installation..."
+  fi
+
   local package
+  local failed_packages=()
   for package in "${package_list[@]}"; do
-    local dpkg_list
-    dpkg_list=$(dpkg -l | grep -w "${package}")
-    if [[ -n "${dpkg_list}" ]]; then
+    if dpkg -l | grep -qw "${package}"; then
       log "${package} is already installed."
     else
-      # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error when running in parallel with other apt commands
+      # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error
       sleep 1
       if apt install -y "${package}"; then
         log "Successfully installed ${package}."
       else
-        log "Failed to install ${package}..."
-        exit 1
+        log "Failed to install ${package}."
+        failed_packages+=("${package}")
       fi
     fi
   done
+
+  if [[ ${#failed_packages[@]} -eq 0 ]]; then
+    log "All packages were installed successfully."
+  else
+    log "Failed to install the following packages: ${failed_packages[*]}"
+  fi
 }
 
 # Configures rkhunter to run daily and email results

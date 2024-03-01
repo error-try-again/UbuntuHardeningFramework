@@ -20,21 +20,46 @@ usage() {
 
 # Updates the cron job for a script
 update_cron_job() {
+  if [[ -z "$1" ]] || [[ -z "$2" ]]; then
+    log "Usage: update_cron_job <script_path> <log_file_path>"
+    return 1
+  fi
+
   local script="$1"
   local log_file="$2"
   local cron_entry="0 0 * * * ${script} >${log_file} 2>&1"
 
-  local current_cron_job
-  current_cron_job=$(crontab -l | grep "${script}")
+  # Attempt to read existing cron jobs, suppressing errors about no existing crontab
+  local current_cron_jobs
+  if ! current_cron_jobs=$(crontab -l 2>/dev/null); then
+    log "No existing crontab for user. Creating new crontab..."
+  fi
 
-  if [[ -z ${current_cron_job} ]] || [[ ${current_cron_job} != "${cron_entry}" ]]; then
-    ( 
-      crontab -l 2> /dev/null | grep -v "${script}"
-                                                         echo "${cron_entry}"
-    )                                                                          | crontab -
-    echo "Cron job updated."
+  # Check if the cron job already exists and is up-to-date
+  if echo "${current_cron_jobs}" | grep -Fq -- "${script}"; then
+    local existing_entry
+    existing_entry=$(echo "${current_cron_jobs}" | grep "${script}")
+    if [[ "${existing_entry}" == "${cron_entry}" ]]; then
+      log "Cron job already up to date."
+      return 0
+    else
+      log "Cron job exists but is not up-to-date. Updating..."
+    fi
   else
-    echo "Cron job already up to date."
+    log "Cron job for script not found. Adding new job..."
+  fi
+
+  # Update or add the cron job
+  (
+    echo "${current_cron_jobs}"
+    echo "${cron_entry}"
+  ) | grep -vF -- "${script}" | crontab -
+
+  if [[ $? -eq 0 ]]; then
+    log "Cron job updated successfully."
+  else
+    log "Failed to update cron job."
+    return 1
   fi
 }
 

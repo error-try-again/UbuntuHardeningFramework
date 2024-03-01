@@ -29,21 +29,46 @@ write_key() {
 
 # Updates the cron job for a script
 update_cron_job() {
+  if [[ -z "$1" ]] || [[ -z "$2" ]]; then
+    log "Usage: update_cron_job <script_path> <log_file_path>"
+    return 1
+  fi
+
   local script="$1"
   local log_file="$2"
   local cron_entry="0 0 * * * ${script} >${log_file} 2>&1"
 
-  local current_cron_job
-  current_cron_job=$(crontab -l | grep "${script}")
+  # Attempt to read existing cron jobs, suppressing errors about no existing crontab
+  local current_cron_jobs
+  if ! current_cron_jobs=$(crontab -l 2>/dev/null); then
+    log "No existing crontab for user. Creating new crontab..."
+  fi
 
-  if [[ -z ${current_cron_job} ]] || [[ ${current_cron_job} != "${cron_entry}" ]]; then
-    (
-      crontab -l 2> /dev/null | grep -v "${script}"
-                                                         echo "${cron_entry}"
-    )                                                                          | crontab -
-    echo "Cron job updated."
+  # Check if the cron job already exists and is up-to-date
+  if echo "${current_cron_jobs}" | grep -Fq -- "${script}"; then
+    local existing_entry
+    existing_entry=$(echo "${current_cron_jobs}" | grep "${script}")
+    if [[ "${existing_entry}" == "${cron_entry}" ]]; then
+      log "Cron job already up to date."
+      return 0
+    else
+      log "Cron job exists but is not up-to-date. Updating..."
+    fi
   else
-    echo "Cron job already up to date."
+    log "Cron job for script not found. Adding new job..."
+  fi
+
+  # Update or add the cron job
+  (
+    echo "${current_cron_jobs}"
+    echo "${cron_entry}"
+  ) | grep -vF -- "${script}" | crontab -
+
+  if [[ $? -eq 0 ]]; then
+    log "Cron job updated successfully."
+  else
+    log "Failed to update cron job."
+    return 1
   fi
 }
 
@@ -98,30 +123,42 @@ EOF
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
 
-  # Verify that there is no apt lock
-  while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-    echo "Waiting for other software managers to finish..." >&2
+  log "Starting package installation process."
+
+  # Verify that there are no apt locks
+  while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    log "Waiting for other software managers to finish..."
     sleep 1
   done
 
-  apt update -y || { log "Failed to update package lists..."; exit 1; }
+  if apt update -y; then
+    log "Package lists updated successfully."
+  else
+    log "Failed to update package lists. Continuing with installation..."
+  fi
+
   local package
+  local failed_packages=()
   for package in "${package_list[@]}"; do
-    local dpkg_list
-    dpkg_list=$(dpkg -l | grep -w "${package}")
-    if [[ -n "${dpkg_list}" ]]; then
+    if dpkg -l | grep -qw "${package}"; then
       log "${package} is already installed."
     else
-      # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error when running in parallel with other apt commands
+      # Sleep to avoid "E: Could not get lock /var/lib/dpkg/lock-frontend" error
       sleep 1
       if apt install -y "${package}"; then
         log "Successfully installed ${package}."
       else
-        log "Failed to install ${package}..."
-        exit 1
+        log "Failed to install ${package}."
+        failed_packages+=("${package}")
       fi
     fi
   done
+
+  if [[ ${#failed_packages[@]} -eq 0 ]]; then
+    log "All packages were installed successfully."
+  else
+    log "Failed to install the following packages: ${failed_packages[*]}"
+  fi
 }
 
 # Main
