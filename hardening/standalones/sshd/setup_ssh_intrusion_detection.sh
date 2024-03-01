@@ -175,7 +175,6 @@ generate_default_config() {
       email_alert_threshold="${email_alert_threshold}"
       email_subject="${email_subject}"
 EOF
-
     ssh_system_log "INFO" "Default configuration file generated at ${local_config_file}" "${log_file}"
   else
     ssh_system_log "INFO" "Configuration file already exists. Skipping generation." "${log_file}"
@@ -227,7 +226,6 @@ manage_daemon() {
   local description="$6"
 
   echo "Managing the SSH Monitor daemon..."
-
   case "$7" in
     install)
       create_daemon_service "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${description}" "${service_name}"
@@ -243,7 +241,7 @@ manage_daemon() {
       ssh_system_log "INFO" "${service_name} daemon disabled and stopped." "${log_file}"
       ;;
     *)
-      ssh_system_log "ERROR" "Invalid command. Usage: $0 [install|status|stop|disable]" "${error_log_file}"
+      ssh_system_log "ERROR" "Invalid command. Usage: $0 [install|status|stop|disable] [email_recipients (optional)]" "${error_log_file}"
       exit 1
       ;;
   esac
@@ -287,10 +285,7 @@ handle_ssh_sessions() {
 
   local ssh_sessions
 
-  ssh_sessions=$(last -s "${twenty_seconds_ago}" -t "${now}" | grep 'pts/' | sort | uniq -c) || {
-    ssh_system_log "INFO" "No SSH sessions found in this interval." "${log_file}"
-    return 1
-  }
+  ssh_sessions=$(last -s "${twenty_seconds_ago}" -t "${now}" | grep 'pts/' | sort | uniq -c)
 
   echo "${now}" > "${last_check_file}" || {
     ssh_system_log "ERROR" "Unable to update last check file." "${error_log_file}"
@@ -381,11 +376,9 @@ main() {
   local service_name="ssh_monitor.service"
   local service_file="/etc/systemd/system/${service_name}"
   local service_description="SSH Monitor Service"
-
   local last_email_sent_file="/tmp/last_email_sent_time"
   local email_alert_threshold=1
   local email_subject="SSH Monitor Alert"
-
   local last_check_file="/tmp/last_ssh_check"
 
   local script_dir
@@ -396,18 +389,15 @@ main() {
   local error_log_file="/var/log/ssh_monitor_error.log"
   log_file="${default_log_file}"
 
-  # Set the email recipients from command line arguments
-  local install_flag="$1"
   local recipients="${2:-root@$(hostname -f)}"
 
   handle_file_checks "${last_check_file}" "${last_email_sent_file}" "${error_log_file}"
   load_config "${local_config_file}" "${log_file}" "${error_log_file}" "${recipients}" "${email_alert_threshold}" "${email_subject}"
 
-  # if no arguments are passed to the script, execute the main loop
   if [[ $1 =~ ^(install|status|stop|disable)$ ]]; then
-    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "${install_flag}"
+    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "$1"
+    echo "SSH IDS management complete."
   else
-
     command -v last >/dev/null 2>&1 || {
       ssh_system_log "ERROR" "The 'last' command is not available. Please install the 'sysstat' package." "${error_log_file}"
       exit 1
@@ -435,6 +425,7 @@ main() {
       fi
     done
   fi
+
 }
 
 # Execute the main function with command line arguments

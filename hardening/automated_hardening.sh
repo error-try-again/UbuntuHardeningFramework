@@ -23,7 +23,7 @@ preconfigured_hardening_scripts() {
   source standalones/sshd/configure_ssh_hardening.sh "${allowed_ssh_pk_user_mappings}" "${allowed_ssh_users}"
 
   # Setup SSH intrusion detection
-  source standalones/sshd/setup_ssh_intrusion_detection.sh "${recipients}" install
+  source standalones/sshd/setup_ssh_intrusion_detection.sh install "${recipients}"
 
   # Setup rkhunter for rootkit detection
   source standalones/rkhunter/setup_rkhunter.sh "${recipients}" "${sender}"
@@ -73,9 +73,11 @@ main() {
     echo "Configuration file found. Running all hardening scripts..."
     source configs/config.sh
     all_hardening_scripts
+    echo "All hardening scripts completed."
   else
     configuration_warning
     standalone_hardening_scripts
+    echo "Standalone hardening scripts completed."
   fi
 }
 

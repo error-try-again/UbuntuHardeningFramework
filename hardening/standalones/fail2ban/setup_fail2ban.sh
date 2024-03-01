@@ -30,7 +30,13 @@ check_root() {
 # Enable and start a service
 enable_service() {
   local service_name="$1"
-  systemctl enable "${service_name}" --no-pager
+  systemctl enable "${service_name}" --no-pager && {
+    log "Enabled ${service_name} service." && {
+      start_service "${service_name}"
+    }
+  } || {
+    log "Failed to enable ${service_name} service."
+  }
 }
 
 # Restart a service
@@ -124,6 +130,7 @@ create_file_if_not_exists() {
   local file="$1"
   local error_log_file="$2"
   if [[ ! -f ${file} ]]; then
+    echo "attempting to create file: ${file}"
     touch "${file}" || {
       system_log "ERROR" "Unable to create file: ${file}" "${error_log_file}"
       exit 1
@@ -136,6 +143,7 @@ ensure_file_is_writable() {
   local file="$1"
   local error_log_file="$2"
   if [[ ! -w ${file} ]]; then
+    echo "attempting to make file writable: ${file}"
     system_log "ERROR" "File is not writable: ${file}" "${error_log_file}"
     exit 1
   fi
@@ -148,7 +156,7 @@ install_apt_packages() {
   log "Starting package installation process."
 
   # Verify that there are no apt locks
-  while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+  while fuser /var/lib/dpkg/lock > /dev/null 2>&1 || fuser /var/lib/apt/lists/lock > /dev/null 2>&1 || fuser /var/cache/apt/archives/lock > /dev/null 2>&1; do
     log "Waiting for other software managers to finish..."
     sleep 1
   done
@@ -203,11 +211,9 @@ main() {
   ensure_file_is_writable "${fail2ban_log_file}" "${fail2ban_log_file}"
   ensure_file_is_writable "${custom_jail}" "${fail2ban_log_file}"
 
-  status_service "fail2ban"
-  start_service "fail2ban"
   enable_service "fail2ban"
 
-#  view_fail2ban_config
+  view_fail2ban_config
   backup_jail_config
 
   # Create a custom Fail2ban jail configuration for SSH protection
@@ -215,6 +221,9 @@ main() {
 
   # Restart Fail2ban service to apply the new configuration
   restart_service "fail2ban"
+
+  # Verify the status of the Fail2ban service
+  status_service "fail2ban"
 }
 
 main "$@"
