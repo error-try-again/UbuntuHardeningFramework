@@ -140,16 +140,12 @@ cd /hardening/standalones
 find . -type f -name '*.sh' ! -name 'setup_ssh_intrusion_detection.sh' -exec sudo bash {} \; # Skip SSH Intrusion Detection
 ```**
 
-Or individually
+Or individually - note certain toolkits use commandline arguments to enable email alerts and more specialized use cases.
 ```bash
 cd /hardening/standalones
 chmod +x *.sh
 ./setup_auditd.sh
 # etc...
-```
-    
-Certain toolkits provide commandline arguments which can be used to enable email alerts and more specialized use cases. 
-```bash
 ```
 
 # Roadmap
