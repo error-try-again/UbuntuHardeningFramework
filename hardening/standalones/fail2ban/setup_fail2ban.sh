@@ -57,12 +57,6 @@ status_service() {
   systemctl status "${service_name}" --no-pager
 }
 
-# View the first 40 lines of Fail2ban configuration file
-view_fail2ban_config() {
-    log "Viewing the first 40 lines of Fail2ban configuration..."
-    head -n 40 /etc/fail2ban/jail.conf
-}
-
 # Backup the existing Fail2ban jail configuration
 backup_jail_config() {
   local backup_dir="/etc/fail2ban/backup"
@@ -213,7 +207,6 @@ main() {
 
   enable_service "fail2ban"
 
-  view_fail2ban_config
   backup_jail_config
 
   # Create a custom Fail2ban jail configuration for SSH protection

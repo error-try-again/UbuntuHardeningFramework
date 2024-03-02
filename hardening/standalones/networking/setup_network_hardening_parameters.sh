@@ -114,6 +114,7 @@ harden_networking_stack_kernel_params() {
 # Main function
 main() {
   check_root
+  echo "Initializing network configuration hardening..."
   harden_networking_stack_kernel_params
 }
 

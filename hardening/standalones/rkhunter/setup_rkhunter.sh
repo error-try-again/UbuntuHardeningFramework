@@ -17,6 +17,7 @@ log() {
   local message="$1"
   local date
   date=$(date +'%Y-%m-%d %H:%M:%S')
+  echo "${date} - ${message}"
 }
 
 usage() {
@@ -72,6 +73,8 @@ configure_rkhunter() {
   local recipients="$1"
   local sender="$2"
 
+  log "Configuring rkhunter..."
+
   # Modify the UPDATE_MIRRORS and MIRRORS_MODE settings in /etc/rkhunter.conf to enable the use of mirrors
   sed -i -e 's|^[#]*[[:space:]]*UPDATE_MIRRORS=.*|UPDATE_MIRRORS=1|' /etc/rkhunter.conf
   sed -i -e 's|^[#]*[[:space:]]*MIRRORS_MODE=.*|MIRRORS_MODE=0|' /etc/rkhunter.conf
@@ -115,11 +118,15 @@ configure_rkhunter() {
   # Replace the sender if it exists in the file
   sed -i -e 's|^[[:space:]]*#*\s*REPORT_SENDER=.*|REPORT_SENDER="'"${sender}"'"|' /etc/default/rkhunter # Replace the sender email if it exists
 
+  log "rkhunter has been configured successfully at /etc/default/rkhunter and /etc/rkhunter.conf"
 }
 
 write_rkhunter_weekly() {
+  echo "Writing rkhunter weekly cron job at /etc/cron.weekly/rkhunter"
 
-  cat <<'EOF' > /etc/cron.weekly/rkhunter
+  local rk_weekly="/etc/cron.weekly/rkhunter"
+
+  cat <<'EOF' > "${rk_weekly}"
 #!/usr/bin/env bash
 
 # Log messages with appropriate prefixes
@@ -258,10 +265,22 @@ main() {
 main "$@"
 
 EOF
+
+  chmod +x /etc/cron.weekly/rkhunter
+
+  log "rkhunter cron jobs have been written successfully at /etc/cron.weekly/rkhunter"
+  log "Attempting to perform a weekly rkhunter database update..."
+
+  "${rk_weekly}"
+
 }
 
 write_rkhunter_daily() {
-  cat <<'EOF' > /etc/cron.daily/rkhunter
+  echo "Writing rkhunter daily cron job at /etc/cron.daily/rkhunter"
+
+  local rk_daily="/etc/cron.daily/rkhunter"
+
+  cat <<'EOF' > "${rk_daily}"
 #!/usr/bin/env bash
 
 # Log messages with appropriate prefixes
@@ -386,8 +405,13 @@ main() {
 }
 
 main "$@"
-
 EOF
+
+  chmod +x /etc/cron.daily/rkhunter
+
+  log "rkhunter cron jobs have been written successfully at /etc/cron.weekly/rkhunter and /etc/cron.daily/rkhunter"
+  log "Attempting to perform a daily rkhunter run..."
+  ${rk_daily}
 }
 
 # Main function

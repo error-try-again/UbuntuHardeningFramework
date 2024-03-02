@@ -71,6 +71,7 @@ validate_config() {
 
 main() {
   check_root
+  echo "Initializing secure /run/shm configuration..."
   backup_fstab
   update_fstab
   remount_shared_memory

@@ -42,6 +42,7 @@ configure_password_policy() {
 # Main function
 main() {
   check_root
+  echo "Configuring password policy..."
   configure_password_policy
 }
 

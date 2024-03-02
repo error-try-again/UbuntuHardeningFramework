@@ -104,6 +104,9 @@ enable_strict_policy() {
     # Rate limit SSH connections on the non-standard port to prevent brute force attacks
     ufw limit "${ssh_port}"/tcp || { info "Failed to rate limit SSH on port ${ssh_port}"; exit 1; }
 
+    # Disable connections on the default SSH port
+    ufw deny 22/tcp || { info "Failed to deny SSH on port 22"; exit 1; }
+
     # Enable UFW with --force to avoid being prompted to confirm the changes
     ufw --force enable || { info "Failed to enable UFW"; exit 1; }
 }

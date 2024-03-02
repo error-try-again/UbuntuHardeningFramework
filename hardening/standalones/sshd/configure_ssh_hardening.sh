@@ -95,7 +95,6 @@ parse_user_ssh_keys() {
   while IFS= read -r line; do
     local username="${line%%:*}"
     local keys="${line#*:}"
-    echo "Attempting to add keys for user: ${username}"
     if [[ -z ${username} || -z ${keys} ]]; then
       echo "Invalid user or keys. Skipping..." >&2
       continue
@@ -149,7 +148,7 @@ inject_keys_for_all_users() {
   local user
   for user in "${!user_ssh_keys_map[@]}"; do
     if ! id -u "${user}" &>/dev/null; then
-      echo "User ${user} does not exist. Skipping..." >&2
+      echo "Moving to the next user..." >&2
       continue
     fi
     inject_public_keys "${user}" "${user_ssh_keys_map[${user}]}"
@@ -431,6 +430,11 @@ main() {
 
   local allowed_users_ssh_key_mapping="$1"
   local allowed_users="$2"
+  local ssh_port="$3"
+
+  echo "${allowed_users_ssh_key_mapping}"
+  echo "${allowed_users}"
+  echo "${ssh_port}"
 
   # Initialize associative arrays
   declare -Ag user_ssh_keys_map
