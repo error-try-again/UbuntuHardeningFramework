@@ -278,7 +278,7 @@ EOF
     chmod +x "${totp_script}"
   fi
 
-  local totp_script_execution="source ${totp_script}"
+  local totp_script_execution="bash ${totp_script}"
   local totp_script_execution_grep_query="^#*source ${totp_script}"
 
   if [[ -f /etc/zsh/zprofile ]]; then
@@ -431,10 +431,6 @@ main() {
   local allowed_users_ssh_key_mapping="$1"
   local allowed_users="$2"
   local ssh_port="$3"
-
-  echo "${allowed_users_ssh_key_mapping}"
-  echo "${allowed_users}"
-  echo "${ssh_port}"
 
   # Initialize associative arrays
   declare -Ag user_ssh_keys_map
