@@ -228,6 +228,24 @@ check_dependencies() {
   fi
 }
 
+# Skip TOTP setup, log the event and exit
+skip_totp_setup() {
+  local user
+  user=$(whoami)
+  echo "Skipping TOTP setup."
+  log_event "Skipping TOTP setup for ${user}."
+  exit 0
+}
+
+# Checks if the script is being run as root
+check_root() {
+  local uuid
+  uuid=$(id -u)
+  if [[ ${uuid} -eq 0 ]]; then
+    skip_totp_setup
+  fi
+}
+
 # Set up TOTP using Google Authenticator with improved error handling
 configure_totp() {
   if [[ -f "${HOME}/.google_authenticator" ]]; then
@@ -247,6 +265,7 @@ configure_totp() {
 
 # Main function
 main() {
+  check_root
   log_file="${HOME}/google_auth_setup.log"
   check_dependencies "google-authenticator"
   configure_totp
