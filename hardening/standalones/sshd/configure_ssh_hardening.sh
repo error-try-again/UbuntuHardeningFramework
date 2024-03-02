@@ -80,93 +80,84 @@ echo "Updating /etc/issue.net..."
 EOF
 }
 
-# Inject public keys for a specified user
+# Parse users and their keys from the multiline string
+parse_user_ssh_keys() {
+  echo "Parsing users and their keys..."
+  local line
+  while IFS= read -r line; do
+    local username="${line%%:*}"
+    local keys="${line#*:}"
+
+    # Add the user and their keys to the top level associative array
+    user_ssh_keys_map["${username}"]="${keys}"
+  done <<< "${allowed_ssh_pk_user_mappings}"
+}
+
+# Adds specified SSH keys to a user's authorized_keys.
 inject_public_keys() {
   local username="$1"
   local keys="$2"
-
-  # Retrieve the home directory of the user.
   local home_directory
   home_directory=$(getent passwd "${username}" | cut -d: -f6)
 
-  # Ensure the home directory exists.
-  if [[ -z "${home_directory}" || ! -d "${home_directory}" ]]; then
-    echo "Unable to find or access the home directory for ${username}. Skipping..." >&2
+  if [[ -z ${home_directory} || ! -d ${home_directory} ]]; then
+    echo "Unable to find or access home directory for ${username}. Skipping..." >&2
+    return
   fi
 
   local ssh_dir="${home_directory}/.ssh"
-  local auth_keys_file="${ssh_dir}/authorized_keys"
+  local auth_keys="${ssh_dir}/authorized_keys"
 
-  # Create the .ssh directory and authorized_keys file if they don't exist.
+  # Ensure .ssh directory and authorized_keys file exist
   mkdir -p "${ssh_dir}" && chmod 700 "${ssh_dir}"
-  touch "${auth_keys_file}" && chmod 600 "${auth_keys_file}"
+  touch "${auth_keys}" && chmod 600 "${auth_keys}"
 
-  # Ensure the ownership is correct.
-  chown "${username}":"${username}" "${ssh_dir}" "${auth_keys_file}"
-
-  # Split keys by comma and iterate over them
-  IFS=',' read -ra ADDR <<< "${keys}"
+  # Add keys if they do not already exist
+  local key_added=0
+  local keys_array
+  IFS=',' read -ra keys_array <<< "${keys}" # Convert keys list into an array
   local key
-  for key in "${ADDR[@]}"; do
-    # Trim any leading or trailing whitespace from the key
-    key=$(echo "${key}" | xargs)
-    # Append key to authorized_keys, avoiding duplicates.
-    if ! grep -qxF -- "${key}" "${auth_keys_file}"; then
-      echo "${key}" >> "${auth_keys_file}"
-      echo "Added key for ${username}"
-    else
-      echo "Key already exists for ${username}"
+  for key in "${keys_array[@]}"; do
+    if ! grep -qF -- "${key}" "${auth_keys}"; then
+      echo "${key}" >> "${auth_keys}"
+      key_added=1
     fi
   done
+
+  if [[ ${key_added} -eq 1 ]]; then
+    echo "New keys added for ${username}."
+  else
+    echo "No new keys to add for ${username}."
+  fi
 }
 
-# Inject public keys for all users in the user_ssh_keys_map
+# Injects public SSH keys into the authorized_keys file for each user in the map.
 inject_keys_for_all_users() {
-  local user
+  echo "Injecting public keys for all users..."
   for user in "${!user_ssh_keys_map[@]}"; do
-    if id -u "${user}" &>/dev/null; then
-      echo "Injecting keys for user: ${user}"
-    else
-      echo "User ${user} does not exist. Skipping..."
+    if ! id -u "${user}" &>/dev/null; then
+      echo "User ${user} does not exist. Skipping..." >&2
       continue
     fi
     inject_public_keys "${user}" "${user_ssh_keys_map[${user}]}"
   done
 }
 
-# Parse the user and SSH key mappings from the provided string.
-parse_user_ssh_keys() {
-  echo "Parsing users and their keys from provided mappings..."
-
-  # The variable contains newlines to separate users; process each line.
-  while IFS= read -r line; do
-    # Extract the username and keys, separated by the first colon.
-    local username="${line%%:*}"
-    local keys="${line#*:}"
-
-    # Replace newlines in keys with commas for uniformity.
-    keys="${keys//$'\n'/,}"
-
-    # Populate the associative array.
-    user_ssh_keys_map["${username}"]="${keys}"
-  done <<< "${1}"
-}
-
-
 # Parse allowed SSH users from a comma-separated string
 parse_allowed_ssh_users() {
   echo "Parsing allowed SSH users..."
-  # If command-line list is provided
-  if [[ -n $1   ]]; then
+  if [[ -n $1 ]]; then
     local users_array
     IFS=',' read -r -a users_array <<< "$1"
-    # Add the users to the allowed SSH users array with a space separator for the configuration file
-    allowed_ssh_users=$(printf "%s " "${users_array[@]}")
+    # Add the users to the top level associative array
+    for user in "${users_array[@]}"; do
+      allowed_ssh_users["${user}"]=''
+    done
   fi
 }
 
 # Update or append a configuration setting in a specified file.
-# This function searches for a key in the given file, and if it exists, it updates the line.
+# Searches for a key in the given file, and if it exists, it updates the line.
 # If the key does not exist, it appends a new line with the key and value.
 update_config() {
   local key="$1"
@@ -434,7 +425,7 @@ main() {
   declare -Ag allowed_ssh_users
 
   # Parse the SSH user key mapping and the allowed users list.
-  parse_user_ssh_keys "${allowed_users_ssh_key_mapping}"
+  parse_user_ssh_keys
   parse_allowed_ssh_users "${allowed_users}"
 
   # Proceed with SSH configuration and key injection

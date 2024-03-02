@@ -22,17 +22,33 @@ The following bash framework stands up and installs several bespoke security too
 - [x] AWS DKIM & DMARC Configuration Deployment Toolkits (optional)
 - [x] Automated Postfix Forwarding Service Deployment (optional)
 
-### Installation
+### Pre-Installation
+
+There are a couple of important steps to the installation process. You'll first need to ensure your system is up to date and has the necessary packages installed. 
+
+```bash
+apt update && apt upgrade -y
+apt install -y git
+```
+
+# Initial Setup
+
+Then, we can clone the repository and navigate to the hardening directory.
 
 ```bash
 git clone https://github.com/error-try-again/auto-harden-ubuntu.git
-cd auto-harden-ubuntu/hardening
+cd auto-harden-ubuntu/
 ```
 
-### Configuration
+If this is a new installation, and you haven't yet created separate user account that will be used to log in to the server now is the time. It will also be used for administrative access.
+The following script automates this process. 
+```bash
+ ./security/create_administrative_user.sh <your_new_user>
+```
 
-Generate a fresh ssh key on your local machine. 
+### SSH Key Preparation
 
+Once this is done, we can go ahead and create a new SSH key for the user account (on your local machine) or use an existing one/multiple.
 ```bash
 0 % ssh-keygen -t ed25519 -C "void@null"
 Generating public/private ed25519 key pair.
@@ -47,27 +63,44 @@ void@null ~/.ssh
 1 % cat void-ed25519.pub # Copy this key
 ```
 
-The script can be executed directly or as a series of individual standalone scripts. If you're executing it as a single script, you can modify the `config.sh` file to include your SSH key mappings, allowed SSH users, Fail2Ban white-listed ips, and email alerts.
+### Configuration
+
+Next, it's important to note that the the project can be executed directly via a single script or as a series of individual standalone scripts. 
+If you're executing it as a single script, you can modify the `config.sh` file to include your SSH key mappings, allowed SSH users, Fail2Ban white-listed ips, and email alerts.
 - SSH key mappings can be configured to automatically allow PKE access to certain user accounts via SSH.
 - Access to the server can be restricted to specific users by modifying the `allowed_ssh_users` csv list.
 - Whitelisted IPs can be added to the `ip_whitelist` csv list to prevent them from being banned by Fail2Ban.
 - Email alerts can be configured by modifying the `sender` and `recipients` variables respectively.
+
+By default, the installer will try to install and configure a mail forwarding service to your mail transfer authority so that the toolkits can send alerts and logs.
+To skip this, just ignore the `sender` and `recipients` variables in the `config.sh` file. In this case, mail will be from and to the localhost.
 
 Modify the `config.sh` file so that it looks similar to the following:
 
 ```bash
 #!/usr/bin/env bash
 
-allowed_ssh_pk_user_mappings="void:ssh-ed25519 AAAA+.......I3tMyotj+jUD>"
-allowed_ssh_users="your_user"
+# Users are separated by a new line and keys are separated by a comma. 
+# You can add as many keys or users as you'd like.
+allowed_ssh_pk_user_mappings="admin:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null
+void:ssh-rsa AAAAB3NzwnBnmkSBpiBsqQ== void@null,ssh-ed2551 AAIDk7VFe example.eg@example.com"
+
+# Users are separated by a comma. These are the users that are allowed to SSH into the server.
+allowed_ssh_users="your_user,another_user"
+
+# Whitelisted IPs are separated by a comma. These IPs will not be banned by Fail2Ban.
 ip_whitelist="your_ip/32"
+
+# Email alerts are sent from the sender to the recipients. If you want to add multiple recipients, separate them by a comma.
 sender="void@your-domain.com.au"
 recipients="your-main-email@another-domain.com"
 
 export allowed_ssh_pk_user_mappings allowed_ssh_users ip_whitelist sender recipients
 ```
 
-If you'd like, you can configure a mail forwarding service to your mail transfer authority so that the toolkits can send alerts and logs, you can use the mail forwarding service installer.
+### Mailing & Alerts
+
+If you already have a mail transfer authority or relay with TLS enabled and would like to - the following script will help you configure a mail forwarding service to your mail transfer authority so that the toolkits can send alerts and logs.
 It's set up to install and configure Postfix to forward all mail to your mail transfer authority over SMTP/TLS on port 587. The script will also install the necessary SASL authentication packages and configure the relay with password authentication. Passwords are hashed and stored in `/etc/postfix/sasl_passwd`. All configurations are validated, backed up and timestamped.
 
 ```bash
@@ -120,6 +153,8 @@ Mar 01 22:41:55 null systemd[1]: Starting Postfix Mail Transport Agent...
 Mar 01 22:41:55 null systemd[1]: Finished Postfix Mail Transport Agent.
 Postfix configuration successfully completed.
 ```
+
+# Installation
 
 Directly as a single script
 ```bash
