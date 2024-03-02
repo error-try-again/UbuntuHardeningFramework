@@ -100,11 +100,15 @@ export allowed_ssh_pk_user_mappings allowed_ssh_users ip_whitelist sender recipi
 
 ### Mailing & Alerts
 
-If you already have a mail transfer authority or relay with TLS enabled and would like to - the following script will help you configure a mail forwarding service to your mail transfer authority so that the toolkits can send alerts and logs.
+If you already have a mail transfer authority or relay with TLS enabled and would like to - the following script will help you configure a mail forwarding service to your mail transfer authority so that the toolkits can send alerts and logs. Otherwise, you can skip this step.
 It's set up to install and configure Postfix to forward all mail to your mail transfer authority over SMTP/TLS on port 587. The script will also install the necessary SASL authentication packages and configure the relay with password authentication. Passwords are hashed and stored in `/etc/postfix/sasl_passwd`. All configurations are validated, backed up and timestamped.
 
 ```bash
-./postfix_forwarding_service_installer.sh my.mail@mailer.com mta.smtp.relay.com
+/mail# ./postfix_forwarding_service_installer.sh public.void@mydomain.com.au email-smtp.ap-southeast-2.amazonaws.com
+```
+
+The script will prompt you for your SMTP username and password. Once you've entered these, the script will validate the configuration and restart the Postfix service.
+```bash
 Reading package lists... Done
 Building dependency tree... Done
 Reading state information... Done
@@ -155,7 +159,6 @@ Postfix configuration successfully completed.
 ```
 
 # Installation
-
 Directly as a single script
 ```bash
 pwd # /hardening

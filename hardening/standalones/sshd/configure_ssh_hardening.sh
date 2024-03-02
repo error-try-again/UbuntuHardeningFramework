@@ -87,7 +87,11 @@ parse_user_ssh_keys() {
   while IFS= read -r line; do
     local username="${line%%:*}"
     local keys="${line#*:}"
-
+    echo "Attempting to add keys for user: ${username}"
+    if [[ -z ${username} || -z ${keys} ]]; then
+      echo "Invalid user or keys. Skipping..." >&2
+      continue
+    fi
     # Add the user and their keys to the top level associative array
     user_ssh_keys_map["${username}"]="${keys}"
   done <<< "${allowed_ssh_pk_user_mappings}"
