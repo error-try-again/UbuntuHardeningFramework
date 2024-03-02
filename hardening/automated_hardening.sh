@@ -19,8 +19,11 @@ preconfigured_hardening_scripts() {
   # Setup automatic system updates
   source standalones/upgrades/setup_auto_upgrades.sh "${recipients}" "${sender}"
 
+  # Setup firewall using UFW (Uncomplicated Firewall)
+  source standalones/firewall/setup_firewall.sh "${ssh_port}"
+
   # Configure SSH hardening
-  source standalones/sshd/configure_ssh_hardening.sh "${allowed_ssh_pk_user_mappings}" "${allowed_ssh_users}"
+  source standalones/sshd/configure_ssh_hardening.sh "${allowed_ssh_pk_user_mappings}" "${allowed_ssh_users}" "${ssh_port}"
 
   # Setup SSH intrusion detection
   source standalones/sshd/setup_ssh_intrusion_detection.sh install "${recipients}"
@@ -42,9 +45,6 @@ standalone_hardening_scripts() {
 
   # Configure password policy using libpam-pwquality
   source standalones/password/setup_password_policy.sh
-
-  # Setup firewall using UFW (Uncomplicated Firewall)
-  source standalones/firewall/setup_firewall.sh
 }
 
 # Calls functions to execute all preconfigured and standalone hardening scripts.

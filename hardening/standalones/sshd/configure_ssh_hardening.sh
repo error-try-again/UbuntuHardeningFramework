@@ -16,7 +16,7 @@ check_root() {
 usage() {
   cat << EOF
 # Usage
-${0} <allowed_users_ssh_key_mapping> <allowed_users_list>
+${0} <allowed_users_ssh_key_mapping> <allowed_users_list> <ssh_port>
 
 # Formats
  (username:ssh-rsa key1,key2,key3)
@@ -25,6 +25,12 @@ ${0} <allowed_users_ssh_key_mapping> <allowed_users_list>
 
 (user1,user2,user3)
  void,admin
+
+# Example
+${0} "void:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null,admin:ssh-rsa AAAAB3Nzwn...BnmkSBpiBsqQ== void@null" "void,admin" 2222
+
+# Note
+SSH port must be a valid number between 1 and 65535, and enabled separately in the firewall.
 
 EOF
 }
@@ -418,7 +424,7 @@ apply_configurations() {
 main() {
   check_root
 
-  if [[ $# -ne 2 ]]; then
+  if [[ $# -ne 3 ]]; then
     usage
     exit 1
   fi
@@ -437,7 +443,7 @@ main() {
   # Proceed with SSH configuration and key injection
   inject_keys_for_all_users
 
-  apply_configurations 22
+  apply_configurations "${ssh_port}"
 
   # Additional configurations and service restart
   update_issue_net

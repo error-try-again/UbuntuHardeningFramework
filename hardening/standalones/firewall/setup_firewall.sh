@@ -80,10 +80,11 @@ install_ufw() {
     fi
 }
 
-# Sets the UFW firewall to deny all incoming connections by default,
-# but allows SSH connections to ensure remote access is maintained.
+# Enable a strict policy for UFW
 enable_strict_policy() {
-    info "Enabling default deny policy and allowing SSH..."
+    local ssh_port="$1"
+
+    info "Enabling default deny policy and allowing SSH on a non-standard port..."
 
     # Specify the policy to deny all incoming connections by default
     ufw default deny incoming || { info "Failed to set default deny policy"; exit 1; }
@@ -97,26 +98,35 @@ enable_strict_policy() {
     # Increase the logging level to help diagnose issues
     ufw logging high || { info "Failed to set logging level"; exit 1; }
 
-    ## Allow SSH connections
-    ufw allow ssh || { info "Failed to allow SSH"; exit 1; }
+    ## Allow SSH connections on a non-standard port
+    ufw allow "${ssh_port}"/tcp || { info "Failed to allow SSH on port ${ssh_port}"; exit 1; }
 
-    # Rate limit SSH connections to prevent brute force attacks
-    ufw limit ssh || { info "Failed to limit SSH"; exit 1; }
+    # Rate limit SSH connections on the non-standard port to prevent brute force attacks
+    ufw limit "${ssh_port}"/tcp || { info "Failed to rate limit SSH on port ${ssh_port}"; exit 1; }
 
     # Enable UFW with --force to avoid being prompted to confirm the changes
     ufw --force enable || { info "Failed to enable UFW"; exit 1; }
 }
 
+usage() {
+    echo "Usage: $0 <ssh_port>"
+    exit 1
+}
+
 main() {
     check_root
 
-    install_ufw
+    if [[ $# -ne 1 ]]; then
+        usage
+    fi
 
+    local ssh_port="${1}"
+
+    install_ufw
     local ufw_before_rules="/etc/ufw/before.rules"
     backup_file "${ufw_before_rules}"
     update_icmp_iptables "${ufw_before_rules}"
-
-    enable_strict_policy
+    enable_strict_policy "${ssh_port}"
 }
 
 main "$@"

@@ -27,4 +27,7 @@ ip_whitelist="1.1.1.1/32,2.2.2.2/32"
 sender="void@ex.com.au"
 recipients="void.recip@ex.com,example1@domain.com"
 
-export allowed_ssh_pk_user_mappings allowed_ssh_users ip_whitelist sender recipients
+# SSH Port for UFW and SSHD
+ssh_port=2783
+
+export allowed_ssh_pk_user_mappings allowed_ssh_users ip_whitelist sender recipients ssh_port
