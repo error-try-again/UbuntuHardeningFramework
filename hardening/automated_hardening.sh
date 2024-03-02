@@ -78,6 +78,7 @@ main() {
     configuration_warning
     standalone_hardening_scripts
     echo "Standalone hardening scripts completed."
+    echo "Please restart the system to apply all changes as certain hardening scripts require a reboot to take effect."
   fi
 }
 

@@ -82,6 +82,8 @@ EOF
 
 # Parse users and their keys from the multiline string
 parse_user_ssh_keys() {
+  local allowed_ssh_pk_user_mappings="$1"
+
   echo "Parsing users and their keys..."
   local line
   while IFS= read -r line; do
@@ -138,6 +140,7 @@ inject_public_keys() {
 # Injects public SSH keys into the authorized_keys file for each user in the map.
 inject_keys_for_all_users() {
   echo "Injecting public keys for all users..."
+  local user
   for user in "${!user_ssh_keys_map[@]}"; do
     if ! id -u "${user}" &>/dev/null; then
       echo "User ${user} does not exist. Skipping..." >&2
@@ -150,13 +153,12 @@ inject_keys_for_all_users() {
 # Parse allowed SSH users from a comma-separated string
 parse_allowed_ssh_users() {
   echo "Parsing allowed SSH users..."
+  # If command-line list is provided
   if [[ -n $1 ]]; then
     local users_array
     IFS=',' read -r -a users_array <<< "$1"
-    # Add the users to the top level associative array
-    for user in "${users_array[@]}"; do
-      allowed_ssh_users["${user}"]=''
-    done
+    # Add the users to the allowed SSH users array with a space separator for the configuration file
+    allowed_ssh_users=$(printf "%s " "${users_array[@]}")
   fi
 }
 
@@ -429,7 +431,7 @@ main() {
   declare -Ag allowed_ssh_users
 
   # Parse the SSH user key mapping and the allowed users list.
-  parse_user_ssh_keys
+  parse_user_ssh_keys "${allowed_users_ssh_key_mapping}"
   parse_allowed_ssh_users "${allowed_users}"
 
   # Proceed with SSH configuration and key injection
