@@ -30,4 +30,16 @@ recipients="void.recip@ex.com,example1@domain.com"
 # SSH Port for UFW and SSHD
 ssh_port=2783
 
-export allowed_ssh_pk_user_mappings allowed_ssh_users ip_whitelist sender recipients ssh_port
+# Port list - used for mass allow or mass deny
+# Format: "port1,port2"
+# Example A: "22"
+# Example B: "22,2222"
+port_list_csv="8081,8080,443,80"
+
+# Port Action - used for mass allow or mass deny
+# Format: "allow" or "deny"
+# Example A: "allow"
+# Example B: "deny"
+firewall_action="allow"
+
+export allowed_ssh_pk_user_mappings allowed_ssh_users ip_whitelist sender recipients ssh_port port_list_csv firewall_action

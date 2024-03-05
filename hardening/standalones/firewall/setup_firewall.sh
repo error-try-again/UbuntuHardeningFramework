@@ -19,10 +19,10 @@ info() {
 
 backup_file() {
     local file_path=$1
-
     local date
     date=$(date +%Y-%m-%d-%H-%M-%S)
     local backup_path="${file_path}.bak.${date}"
+
     if [[ -f "${file_path}" ]]; then
         info "Backing up ${file_path} to ${backup_path}..."
         cp "${file_path}" "${backup_path}" || { info "Failed to back up ${file_path}"; exit 1; }
@@ -111,25 +111,51 @@ enable_strict_policy() {
     ufw --force enable || { info "Failed to enable UFW"; exit 1; }
 }
 
+handle_ports() {
+  local port_list_csv="$1"
+  local state_type="$2"
+  local ports port_list
+
+  IFS=',' read -r -a port_list <<< "${port_list_csv}"
+  for ports in "${port_list[@]}"; do
+    if [[ ${state_type} == "allow" ]]; then
+      ufw allow "${ports}"
+    elif [[ ${state_type} == "deny" ]]; then
+      ufw deny "${ports}"
+    else
+      echo "Invalid state type: ${state_type}"
+      exit 1
+    fi
+  done
+
+  ufw reload
+  ufw status
+}
+
 usage() {
-    echo "Usage: $0 <ssh_port>"
+    echo "Usage: $0 <ssh_port> <allow_list_csv> <action (allow|deny)>" >&2
     exit 1
 }
 
 main() {
     check_root
 
-    if [[ $# -ne 1 ]]; then
+    if [[ "$#" -ne 3 ]]; then
         usage
     fi
 
     local ssh_port="${1}"
+    local allow_list_csv="${2}"
+    local action="${3}"
 
     install_ufw
     local ufw_before_rules="/etc/ufw/before.rules"
+
     backup_file "${ufw_before_rules}"
     update_icmp_iptables "${ufw_before_rules}"
     enable_strict_policy "${ssh_port}"
+
+    handle_ports "${allow_list_csv}" "${action}"
 }
 
 main "$@"

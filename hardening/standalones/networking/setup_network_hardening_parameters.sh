@@ -47,7 +47,6 @@ harden_networking_stack_kernel_params() {
     # Disable ICMP redirects to prevent misrouting and MITM attacks.
     echo "net.ipv4.conf.all.accept_redirects=0"
     echo "net.ipv4.conf.default.accept_redirects=0"
-
     echo "net.ipv4.conf.all.secure_redirects=1"
     echo "net.ipv4.conf.default.secure_redirects=1"
 
@@ -91,7 +90,6 @@ harden_networking_stack_kernel_params() {
     # if IPv6 is not used. This helps in simplifying network security posture.
     echo "net.ipv6.conf.all.accept_redirects=0"
     echo "net.ipv6.conf.default.accept_redirects=0"
-
     echo "net.ipv6.conf.all.disable_ipv6=1"
     echo "net.ipv6.conf.default.disable_ipv6=1"
 

@@ -75,7 +75,7 @@ verify_sshd_config() {
 
 # Update Issue.net file
 update_issue_net() {
-echo "Updating /etc/issue.net..."
+  echo "Updating /etc/issue.net..."
   cat << 'EOF' > /etc/issue.net
   +----------------------------------------------------+
   | This is a controlled access system. The activities |
@@ -147,7 +147,7 @@ inject_keys_for_all_users() {
   echo "Injecting public keys for all users..."
   local user
   for user in "${!user_ssh_keys_map[@]}"; do
-    if ! id -u "${user}" &>/dev/null; then
+    if ! id -u "${user}" &> /dev/null; then
       echo "Moving to the next user..." >&2
       continue
     fi
@@ -207,7 +207,7 @@ append_totp_to_profile() {
 log_event() {
   local current_time
   current_time=$(date '+%Y-%m-%d %H:%M:%S')
-  echo "[${current_time}] $1" | tee -a "${log_file}" >&2
+  echo "[${current_time}] $1" >> "${log_file}" 2>/dev/null
 }
 
 # Check for all required commands at the start
@@ -225,7 +225,7 @@ check_dependencies() {
     for cmd in "${missing_commands[@]}"; do
       echo "Required command '${cmd}' not found. Please install it." >&2
     done
-    log_event "Missing commands: ${missing_commands[*]}. Aborting."
+    log_event "Missing required commands: ${missing_commands[*]}"
     exit 1
   fi
 }
@@ -279,7 +279,7 @@ EOF
   fi
 
   local totp_script_execution="bash ${totp_script}"
-  local totp_script_execution_grep_query="^#*source ${totp_script}"
+  local totp_script_execution_grep_query="^#*bash ${totp_script}"
 
   if [[ -f /etc/zsh/zprofile ]]; then
     if grep -qE "${totp_script_execution_grep_query}" /etc/zsh/zprofile; then
@@ -419,6 +419,48 @@ apply_configurations() {
   verify_sshd_config "${sshd_config_file}"
 }
 
+# Set the correct ownership and permissions for the .ssh directory and authorized_keys file
+set_ssh_directory_and_file_permissions() {
+  local user="$1"
+  local home_directory
+  home_directory=$(getent passwd "${user}" | cut -d: -f6)
+
+  if [[ -z ${home_directory} || ! -d ${home_directory} ]]; then
+    echo "Unable to find or access home directory for ${user}. Skipping..." >&2
+    return
+  fi
+
+  local ssh_dir="${home_directory}/.ssh"
+  local auth_keys="${ssh_dir}/authorized_keys"
+
+  # Ensure .ssh directory and authorized_keys file exist
+  mkdir -p "${ssh_dir}" && chmod 700 "${ssh_dir}"
+  touch "${auth_keys}" && chmod 600 "${auth_keys}"
+
+  # Set the correct ownership and permissions for the .ssh directory and authorized_keys file
+  chown -R "${user}:${user}" "${ssh_dir}" "${auth_keys}"
+}
+
+# If the user exists, set the correct ownership and permissions for the .ssh directory and authorized_keys file
+validate_allowed_user_ssh_permissions() {
+  local allowed_users_csv="$1"
+  local user users_array
+  IFS=',' read -ra users_array <<< "${allowed_users_csv}"
+  for user in "${users_array[@]}"; do
+    if ! id -u "${user}" &> /dev/null; then
+      echo "User ${user} does not exist. Exiting..." >&2
+      exit 1
+    fi
+
+    if [[ -z $(getent passwd "${user}") ]]; then
+      echo "User ${user} does not exist. Exiting..." >&2
+      exit 1
+    fi
+    set_ssh_directory_and_file_permissions "${user}"
+  done
+}
+
+
 # Main function
 main() {
   check_root
@@ -439,10 +481,12 @@ main() {
   # Parse the SSH user key mapping and the allowed users list.
   parse_user_ssh_keys "${allowed_users_ssh_key_mapping}"
   parse_allowed_ssh_users "${allowed_users}"
+  validate_allowed_user_ssh_permissions "${allowed_users}"
 
   # Proceed with SSH configuration and key injection
   inject_keys_for_all_users
 
+  # Apply SSH hardening configurations
   apply_configurations "${ssh_port}"
 
   # Additional configurations and service restart

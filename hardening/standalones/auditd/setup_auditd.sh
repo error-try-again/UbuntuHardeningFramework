@@ -145,6 +145,7 @@ configure_audit_rules() {
   log "Configuring Auditd rules..."
 
   # Define custom audit rules
+  # TODO - Extend ruleset
   cat << EOL > /etc/audit/rules.d/custom-audit-rules.rules
 # Monitor system changes
 -w /etc/passwd -p wa
@@ -174,6 +175,7 @@ configure_auditd_logging() {
 }
 
 # Updates the cron job for a script
+# shellcheck disable=SC2091
 update_cron_job() {
   if [[ -z "$1" ]] || [[ -z "$2" ]]; then
     log "Usage: update_cron_job <script_path> <log_file_path>"
@@ -186,7 +188,7 @@ update_cron_job() {
 
   # Attempt to read existing cron jobs, suppressing errors about no existing crontab
   local current_cron_jobs
-  if ! current_cron_jobs=$(crontab -l 2>/dev/null); then
+  if ! $(crontab -l 2>/dev/null); then
     log "No existing crontab for user. Creating new crontab..."
   fi
 
@@ -221,7 +223,6 @@ update_cron_job() {
 # Installs a list of apt packages
 install_apt_packages() {
   local package_list=("${@}") # Capture all arguments as an array of packages
-
   log "Starting package installation process."
 
   # Verify that there are no apt locks

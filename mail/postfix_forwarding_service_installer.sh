@@ -23,7 +23,7 @@ update_postfix_config() {
   local setting_value="$2"
   local main_cf="$3"
 
-  if [[ -z ${setting_value}   ]]; then
+  if [[ -z ${setting_value} ]]; then
     echo "Value for ${setting_name} is not provided. Skipping update."
     return
   fi
@@ -136,7 +136,8 @@ enable_and_restart_postfix() {
 backup_configs() {
   local main_cf="$1"
   local backup_dir="/etc/postfix/backup"
-  local backup_file="${backup_dir}/main.cf.$(date +%Y%m%d%H%M%S)"
+  local backup_file
+  backup_file="${backup_dir}/main.cf.$(date +%Y%m%d%H%M%S)"
 
   if [[ ! -d ${backup_dir}   ]]; then
     mkdir -p "${backup_dir}"

@@ -54,7 +54,7 @@ copy_key_to_server() {
 # Main function.
 main() {
   if [[ "$#" -ne 3 ]]; then
-    echo "Usage: $0 <server> <username> <email>"
+    echo "Usage: $0 <server> <username> <email/comment>"
     exit 1
   fi
 

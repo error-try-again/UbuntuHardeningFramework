@@ -19,8 +19,12 @@ install_and_configure_apparmor() {
   else
     echo "Installing and activating AppArmor..."
     if apt-get update -y \
-                      && apt-get install -y apparmor apparmor-utils apparmor-notify apparmor-profiles apparmor-profiles-extra \
-                                               && systemctl enable apparmor \
+                      && apt-get install -y apparmor \
+                      apparmor-utils \
+                      apparmor-notify \
+                      apparmor-profiles \
+                      apparmor-profiles-extra \
+                               && systemctl enable apparmor \
                                && systemctl start apparmor; then
       echo "AppArmor installed and activated successfully."
     else
@@ -47,7 +51,7 @@ enable_apparmor_auditing() {
   local auditd_installed
   auditd_installed=$(command -v auditd)
 
-  if [[ -n "${auditd_installed}" ]]; then
+  if [[ -n ${auditd_installed}   ]]; then
     echo "Auditd is already installed. Skipping installation."
   else
     echo "Installing auditd..."

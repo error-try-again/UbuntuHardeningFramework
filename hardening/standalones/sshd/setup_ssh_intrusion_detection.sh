@@ -284,7 +284,6 @@ handle_ssh_sessions() {
   twenty_seconds_ago=$(date '+%Y-%m-%d %H:%M' -d "20 seconds ago")
 
   local ssh_sessions
-
   ssh_sessions=$(last -s "${twenty_seconds_ago}" -t "${now}" | grep 'pts/' | sort | uniq -c)
 
   echo "${now}" > "${last_check_file}" || {

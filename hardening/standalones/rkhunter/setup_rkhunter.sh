@@ -20,6 +20,7 @@ log() {
   echo "${date} - ${message}"
 }
 
+# Usage example message for the user
 usage() {
   echo "Usage: $0 <recipient_email_addresses> <sender_email_address>"
   echo "Example: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com"
@@ -83,7 +84,7 @@ configure_rkhunter() {
   sed -i -e 's|^[#]*[[:space:]]*APPEND_LOG=.*|APPEND_LOG=1|' /etc/rkhunter.conf
 
   # Modify the USE_SYSLOG setting in /etc/rkhunter.conf to enable the use of syslog integration
-  sed -i "s|^USE_SYSLOG=.*|USE_SYSLOG=authpriv.warning|" /etc/rkhunter.conf
+  sed -i 's|^USE_SYSLOG=.*|USE_SYSLOG=authpriv.warning|' /etc/rkhunter.conf
 
   # Modify the WEB_CMD setting in /etc/rkhunter.conf to disable the use of the web command
   sed -i "s|^WEB_CMD=.*|WEB_CMD=|" /etc/rkhunter.conf

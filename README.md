@@ -1,4 +1,4 @@
-# A Definitive Automated Hardening Framework for Ubuntu 🔐
+# An Automated Hardening Framework for Ubuntu 🔐
 
 The following bash framework stands up and installs several bespoke security toolkits, developed to provide seamless automatic security controls for Ubuntu servers.
 
@@ -24,7 +24,7 @@ The following bash framework stands up and installs several bespoke security too
 
 ### Pre-Installation
 
-There are a couple of important steps to the installation process. You'll first need to ensure your system is up to date and has the necessary packages installed. 
+There are a couple of important steps to the installation process. You'll first need to ensure your system is up to date and has the necessary packages installed.
 
 ```bash
 apt update && apt upgrade -y
@@ -41,7 +41,7 @@ cd auto-harden-ubuntu/
 ```
 
 If this is a new installation, and you haven't yet created separate user account that will be used to log in to the server now is the time. It will also be used for administrative access.
-The following script automates this process. 
+The following script automates this process.
 ```bash
  ./security/create_administrative_user.sh <your_new_user>
 ```
@@ -65,7 +65,7 @@ void@null ~/.ssh
 
 ### Configuration
 
-Next, it's important to note that the the project can be executed directly via a single script or as a series of individual standalone scripts. 
+Next, it's important to note that the the project can be executed directly via a single script or as a series of individual standalone scripts.
 If you're executing it as a single script, you can modify the `config.sh` file to include your SSH key mappings, allowed SSH users, Fail2Ban white-listed ips, and email alerts.
 - SSH key mappings can be configured to automatically allow PKE access to certain user accounts via SSH.
 - Access to the server can be restricted to specific users by modifying the `allowed_ssh_users` csv list.
@@ -169,13 +169,13 @@ chmod +x automated_hardening.sh
 ./automated_hardening.sh
 ```
 
-Or as a series of individual standalone scripts - note that running this will not configure proper email alerts.  
+Or as a series of individual standalone scripts - note that running this will not configure proper email alerts.
 ```bash
 cd /hardening/standalones
 find . -type f -name '*.sh' -exec sudo bash {} \;
 ```
 
-To skip the installation of a specific toolkit, you can use the following command: 
+To skip the installation of a specific toolkit, you can use the following command:
 ```bash
 cd /hardening/standalones
 find . -type f -name '*.sh' ! -name 'setup_ssh_intrusion_detection.sh' -exec sudo bash {} \; # Skip SSH Intrusion Detection
@@ -195,6 +195,7 @@ chmod +x *.sh
 - [ ] Additional controls for alerts and logs
 - [ ] Streamline configuration for easy deployment
 - [ ] Email digests for alerts
+- [ ] Update SSH IDS alerting to use pam_exec based system rather than rotating timer
 
 # Notes
 If for some reason you need to reinstall apt installed configuration files to their defaults, e.g. pam.d, you can use the following command:
