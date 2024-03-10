@@ -11,9 +11,9 @@ log() {
 }
 
 usage() {
-  echo "Usage: $0 <recipient_email_addresses> <sender_email_address> <ip_list>"
-  echo "Example A: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com 5.5.5.5/32"
-  echo "Example B: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com 5.5.5.5/32,6.6.6.6/32"
+  echo "Usage: $0 <ssh_port> <recipient_email_addresses> <sender_email_address> <ip_list>"
+  echo "Example A: $0 22 recipient1@ex.com,recipient2@ex.com sender@ex.com 5.5.5.5/32"
+  echo "Example B: $0 22 recipient1@ex.com,recipient2@ex.com sender@ex.com 5.5.5.5/32,6.6.6.6/32"
   exit 1
 }
 
@@ -80,10 +80,11 @@ backup_jail_config() {
 
 # Create a custom Fail2ban jail configuration for SSH protection
 create_jail_config() {
-  local custom_jail="${1}" # Path to the custom jail configuration
-  local recipients="${2:-example.eg@example.com}" # Default recipient email if not provided
-  local sender="${3:-example1.eg@example.com}" # Default sender email if not provided
-  local ip_list="${4:-""}" # Default IP list to empty if not provided
+  local ssh_port="${1}"
+  local custom_jail="${2}" # Path to the custom jail configuration
+  local recipients="${3:-example.eg@example.com}" # Default recipient email if not provided
+  local sender="${4:-example1.eg@example.com}" # Default sender email if not provided
+  local ip_list="${5:-""}" # Default IP list to empty if not provided
   local ignore_ips
 
   if [[ ${ip_list} == "" ]]; then
@@ -103,7 +104,7 @@ create_jail_config() {
     cat <<- EOF > "${custom_jail}"
         [sshd]
         enabled = true
-        port = ssh
+        port = ${ssh_port}
         filter = sshd
         logpath = /var/log/auth.log
         maxretry = 3
@@ -193,9 +194,14 @@ main() {
   local custom_jail="/etc/fail2ban/jail.local"
   local fail2ban_log_file="/var/log/fail2ban-setup.log"
 
-  local recipients="${1:-root@$(hostname -f)}" # Default recipient email if not provided
-  local sender="${2:-root@$(hostname -f)}" # Default sender email if not provided
-  local ip_list="${3:-""}" # Default IP list to empty if not provided
+  if [[ $# -ne 4 ]]; then
+    usage
+  fi
+
+  local ssh_port="${1:-22}" # Default SSH port if not provided
+  local recipients="${2:-root@$(hostname -f)}" # Default recipient email if not provided
+  local sender="${3:-root@$(hostname -f)}" # Default sender email if not provided
+  local ip_list="${4:-""}" # Default IP list to empty if not provided
 
   install_apt_packages "fail2ban"
 
@@ -210,7 +216,7 @@ main() {
   backup_jail_config
 
   # Create a custom Fail2ban jail configuration for SSH protection
-  create_jail_config "${custom_jail}" "${recipients}" "${sender}" "${ip_list}"
+  create_jail_config "${ssh_port}" "${custom_jail}" "${recipients}" "${sender}" "${ip_list}"
 
   # Restart Fail2ban service to apply the new configuration
   restart_service "fail2ban"

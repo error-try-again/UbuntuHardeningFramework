@@ -14,7 +14,7 @@ preconfigured_hardening_scripts() {
   source standalones/apparmor/setup_apparmor.sh
 
   # Enable and configure fail2ban
-  source standalones/fail2ban/setup_fail2ban.sh "${recipients}" "${sender}" "${ip_whitelist}"
+  source standalones/fail2ban/setup_fail2ban.sh "${ssh_port}" "${recipients}" "${sender}" "${ip_whitelist}"
 
   # Setup automatic system updates
   source standalones/upgrades/setup_auto_upgrades.sh "${recipients}" "${sender}"

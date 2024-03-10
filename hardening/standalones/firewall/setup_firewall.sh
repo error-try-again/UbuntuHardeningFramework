@@ -109,6 +109,8 @@ enable_strict_policy() {
 
     # Enable UFW with --force to avoid being prompted to confirm the changes
     ufw --force enable || { info "Failed to enable UFW"; exit 1; }
+
+    systemctl enable ufw || { info "Failed to enable UFW on boot"; exit 1; }
 }
 
 handle_ports() {
