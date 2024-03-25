@@ -23,7 +23,7 @@ preconfigured_hardening_scripts() {
   source standalones/sshd/configure_ssh_hardening.sh "${allowed_ssh_pk_user_mappings}" "${allowed_ssh_users}" "${ssh_port}"
 
   # Setup firewall using UFW (Uncomplicated Firewall)
-  source standalones/firewall/setup_firewall.sh "${ssh_port}"
+  source standalones/firewall/setup_firewall.sh "${ssh_port}" "${port_list_csv}" "${firewall_action}"
 
   # Setup SSH intrusion detection
   source standalones/sshd/setup_ssh_intrusion_detection.sh install "${recipients}"
@@ -84,5 +84,3 @@ main() {
 
 # Invoke the main function and pass all positional parameters to it
 main "$@"
-
-

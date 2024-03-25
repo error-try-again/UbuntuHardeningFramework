@@ -135,7 +135,7 @@ handle_ports() {
 }
 
 usage() {
-    echo "Usage: $0 <ssh_port> <allow_list_csv> <action (allow|deny)>" >&2
+    echo "Usage: ./setup_firewall.sh <ssh_port> <allow_list_csv> <action (allow|deny)>" >&2
     exit 1
 }
 

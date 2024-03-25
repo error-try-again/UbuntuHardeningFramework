@@ -45,31 +45,20 @@ update_cron_job() {
   fi
 
   # Check if the cron job already exists and is up-to-date
-  if echo "${current_cron_jobs}" | grep -Fq -- "${script}"; then
-    local existing_entry
-    existing_entry=$(echo "${current_cron_jobs}" | grep "${script}")
-    if [[ "${existing_entry}" == "${cron_entry}" ]]; then
-      log "Cron job already up to date."
-      return 0
-    else
-      log "Cron job exists but is not up-to-date. Updating..."
-    fi
+  if echo "${current_cron_jobs}" | grep -Fxq -- "${cron_entry}"; then
+    log "Cron job already up to date."
+    return 0
   else
-    log "Cron job for script not found. Adding new job..."
+    log "Cron job for script not found or not up-to-date. Adding new job..."
   fi
 
-  # Update or add the cron job
-  (
-    echo "${current_cron_jobs}"
-    echo "${cron_entry}"
-  ) | grep -vF -- "${script}" | crontab -
-
-  if [[ $? -eq 0 ]]; then
-    log "Cron job updated successfully."
+  # Add the cron job to the crontab
+  if (echo "${current_cron_jobs}"; echo "${cron_entry}") | crontab -; then
+    log "Cron job added successfully."
   else
-    log "Failed to update cron job."
-    return 1
+    log "Failed to add cron job."
   fi
+
 }
 
 # Configures automatic updates
@@ -87,7 +76,8 @@ configure_auto_updates() {
           ["Unattended-Upgrade::Remove-Unused-Kernel-Packages"]='"false";'
           ["Unattended-Upgrade::Automatic-Reboot-WithUsers"]='"true";'
           ["Unattended-Upgrade::Automatic-Reboot-Time"]='"00:00";'
-          ["Acquire::http::Dl-Limit"]='"100";'
+          ["Unattended-Upgrade::Automatic-Reboot"]='"true";'
+          ["Acquire::http::Dl-Limit"]='"10000";'
           ["Unattended-Upgrade::SyslogEnable"]='"true";'
           ["Unattended-Upgrade::SyslogFacility"]='"daemon";'
           ["Unattended-Upgrade::Verbose"]='"true";'
