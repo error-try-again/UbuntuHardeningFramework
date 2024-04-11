@@ -58,8 +58,10 @@ validate_port() {
 restart_sshd() {
   if systemctl restart sshd; then
     echo "SSHD restarted successfully."
+  elif service ssh restart; then
+    echo "SSH restarted successfully."
   else
-    echo "Failed to restart SSHD. Check manually." >&2
+    echo "Failed to restart SSH/D. Check manually." >&2
     exit 1
   fi
 }
@@ -326,6 +328,17 @@ configure_pam_for_2fa() {
     grep -qE "${pam_google_authenticator_grep_query}" "${sshd_pam_config}" || echo "${pam_google_authenticator_string}" >> "${sshd_pam_config}"
 }
 
+check_install_host_keys() {
+  local host_keys=("/etc/ssh/ssh_host_ed25519_key" "/etc/ssh/ssh_host_rsa_key" "/etc/ssh/ssh_host_ecdsa_key")
+  local key
+  for key in "${host_keys[@]}"; do
+    if [[ ! -f ${key} ]]; then
+      echo "Host key ${key} not found. Generating..." >&2
+      ssh-keygen -t "${key##*/}" -f "${key}" -N "" -q
+    fi
+  done
+}
+
 # Apply multiple security configurations to the sshd_config file.
 # This includes setting the SSH port, configuring user access, and securing the SSH daemon.
 apply_configurations() {
@@ -485,6 +498,9 @@ main() {
 
   # Proceed with SSH configuration and key injection
   inject_keys_for_all_users
+
+  # Check and install host keys
+  check_install_host_keys
 
   # Apply SSH hardening configurations
   apply_configurations "${ssh_port}"

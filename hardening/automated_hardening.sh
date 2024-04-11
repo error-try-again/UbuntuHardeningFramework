@@ -26,7 +26,8 @@ preconfigured_hardening_scripts() {
   source standalones/firewall/setup_firewall.sh "${ssh_port}" "${port_list_csv}" "${firewall_action}"
 
   # Setup SSH intrusion detection
-  source standalones/sshd/setup_ssh_intrusion_detection.sh install "${recipients}"
+  source standalones/sshd/generate_ssh_intrusion_detection.sh
+  source /opt/ssh_monitor/ssh_monitor.sh install "${recipients}"
 
   # Setup rkhunter for rootkit detection
   source standalones/rkhunter/setup_rkhunter.sh "${recipients}" "${sender}"

@@ -31,7 +31,7 @@ update_cron_job() {
 
   # Attempt to read existing cron jobs, suppressing errors about no existing crontab
   local current_cron_jobs
-  if ! current_cron_jobs=$(crontab -l 2>/dev/null); then
+  if ! current_cron_jobs=$(crontab -l 2> /dev/null); then
     log "No existing crontab for user. Creating new crontab..."
   fi
 

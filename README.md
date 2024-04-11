@@ -175,6 +175,12 @@ cd /hardening/standalones
 find . -type f -name '*.sh' -exec sudo bash {} \;
 ```
 
+The exception here is the SSH-IDS toolkit, which first has to be generated and then installed.
+```bash 
+sudo ./standalones/sshd/generate_ssh_intrusion_detection.sh   
+sudo bash /opt/ssh_monitor/ssh_monitor.sh install optional-email@example.com
+```
+
 To skip the installation of a specific toolkit, you can use the following command:
 ```bash
 cd /hardening/standalones
@@ -187,6 +193,25 @@ cd /hardening/standalones
 chmod +x *.sh
 ./setup_auditd.sh
 # etc...
+```
+
+# Post-Installation
+
+Some cron jobs are set up to run daily and weekly scans for RKHunter and Lynis respectively. Additionally, unattended upgrades are set to run daily. You can check the cron jobs by running the following commands:
+
+```bash
+❯ sudo crontab -l
+
+0 0 * * * /usr/local/bin/audit-report.sh >/var/log/audit-report.log 2>&1
+0 0 * * * /usr/bin/unattended-upgrade -d >/var/log/unattended-upgrades.log 2>&1
+0 0 * * * /usr/local/bin/lynis_installer.sh >/var/log/lynis_cron.log 2>&1
+```
+
+```bash
+❯ ls /etc/cron.weekly/rkhunter 
+/etc/cron.weekly/rkhunter 
+❯ ls /etc/cron.daily/rkhunter 
+/etc/cron.daily/rkhunter
 ```
 
 # Roadmap

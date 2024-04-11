@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
+
+#######################################
+# description
+# Arguments:
+#  None
+#######################################
+generate_ssh_intrusion_detection() {
+  local ssh_monitor_path="/opt/ssh_monitor"
+  mkdir -p "${ssh_monitor_path}"
+
+    cat <<'EOF' > "${ssh_monitor_path}/ssh_monitor.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: $0 [install|status|stop|disable|start] [email_recipients (optional)]"
+  exit 1
+}
 
 # Checks if the script is being run as root
 check_root() {
@@ -45,40 +62,6 @@ check_and_create_file() {
       exit 1
     }
   fi
-}
-
-# Updates the cron job for a script
-update_cron_job() {
-  if [[ -z "$1" ]] || [[ -z "$2" ]]; then
-    log "Usage: update_cron_job <script_path> <log_file_path>"
-    return 1
-  fi
-
-  local script="$1"
-  local log_file="$2"
-  local cron_entry="0 0 * * * ${script} >${log_file} 2>&1"
-
-  # Attempt to read existing cron jobs, suppressing errors about no existing crontab
-  local current_cron_jobs
-  if ! current_cron_jobs=$(crontab -l 2>/dev/null); then
-    log "No existing crontab for user. Creating new crontab..."
-  fi
-
-  # Check if the cron job already exists and is up-to-date
-  if echo "${current_cron_jobs}" | grep -Fxq -- "${cron_entry}"; then
-    log "Cron job already up to date."
-    return 0
-  else
-    log "Cron job for script not found or not up-to-date. Adding new job..."
-  fi
-
-  # Add the cron job to the crontab
-  if (echo "${current_cron_jobs}"; echo "${cron_entry}") | crontab -; then
-    log "Cron job added successfully."
-  else
-    log "Failed to add cron job."
-  fi
-
 }
 
 # Log messages with appropriate prefixes
@@ -155,15 +138,13 @@ generate_default_config() {
   local email_alert_threshold="$5"
   local email_subject="$6"
 
-# Generate the default configuration if it doesn't exist - used to populate the environment variables via source
-  if [[ ! -f ${local_config_file}   ]]; then
-    cat <<- EOF > "${local_config_file}"
-      log_file="${log_file}"
-      error_log_file="${error_log_file}"
-      recipients="${recipients}"
-      email_alert_threshold="${email_alert_threshold}"
-      email_subject="${email_subject}"
-EOF
+  # Generate the default configuration if it doesn't exist - used to populate the environment variables via source
+  if [[ ! -f ${local_config_file} ]]; then
+    echo "log_file=\"${log_file}\"" > "${local_config_file}"
+    echo "error_log_file=\"${error_log_file}\"" >> "${local_config_file}"
+    echo "recipients=\"${recipients}\"" >> "${local_config_file}"
+    echo "email_alert_threshold=\"${email_alert_threshold}\"" >> "${local_config_file}"
+    echo "email_subject=\"${email_subject}\"" >> "${local_config_file}"
     ssh_system_log "INFO" "Default configuration file generated at ${local_config_file}" "${log_file}"
   else
     ssh_system_log "INFO" "Configuration file already exists. Skipping generation." "${log_file}"
@@ -174,42 +155,37 @@ EOF
 create_daemon_service() {
   local log_file="$1"
   local error_log_file="$2"
-  local script_dir="$3"
+  local script_path="$3"
   local service_file="$4"
   local description="$5"
   local service_name="$6"
 
   echo "Creating service file at ${service_file}"
 
-  {
-    cat <<- EOF
-      [Unit]
-      Description=${description}
-
-      [Service]
-      ExecStart=${script_dir}/$(basename "$0")
-      Restart=always
-
-      [Install]
-      WantedBy=multi-user.target
-EOF
-  } > "${service_file}" || {
+  echo "[Unit]" > "${service_file}" || {
     ssh_system_log "ERROR" "Unable to create service file." "${error_log_file}"
     return 1
   }
+  echo "Description=${description}" >> "${service_file}"
+  echo "" >> "${service_file}"
+  echo "[Service]" >> "${service_file}"
+  echo "ExecStart=bash ${script_path} start" >> "${service_file}"
+  echo "Restart=always" >> "${service_file}"
+  echo "" >> "${service_file}"
+  echo "[Install]" >> "${service_file}"
+  echo "WantedBy=multi-user.target" >> "${service_file}"
 
   ssh_system_log "INFO" "Created service file at ${service_file}" "${log_file}"
 
   enable_service "${service_name}"
   start_service "${service_name}"
-
 }
 
 # Manage the SSH Monitor daemon
 manage_daemon() {
   local log_file="$1"
   local error_log_file="$2"
-  local script_dir="$3"
+  local script_path="$3"
   local service_file="$4"
   local service_name="$5"
   local description="$6"
@@ -217,7 +193,7 @@ manage_daemon() {
   echo "Managing the SSH Monitor daemon..."
   case "$7" in
     install)
-      create_daemon_service "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${description}" "${service_name}"
+      create_daemon_service "${log_file}" "${error_log_file}" "${script_path}" "${service_file}" "${description}" "${service_name}"
       ;;
     status)
       systemctl status "${service_name}" || ssh_system_log "ERROR" "Failed to get status of the ${service_name} daemon." "${error_log_file}"
@@ -261,7 +237,6 @@ handle_ssh_sessions() {
   local recipients="${3:-root@$(hostname -f)}"
   local last_email_sent_file="${4}"
   local error_log_file="${5}"
-
   local last_check_file="/tmp/last_ssh_check"
 
   # Get the current time in the format: YYYY-MM-DD HH:MM
@@ -273,11 +248,12 @@ handle_ssh_sessions() {
   twenty_seconds_ago=$(date '+%Y-%m-%d %H:%M' -d "20 seconds ago")
 
   local ssh_sessions
-  ssh_sessions=$(last -s "${twenty_seconds_ago}" -t "${now}" | grep 'pts/' | sort | uniq -c)
+  ssh_sessions=$(last -s "${twenty_seconds_ago}" -t "${now}" | grep 'pts/' | sort | uniq -c) || {
+    ssh_system_log "INFO" "No SSH sessions found in this interval." "${log_file}"
+  }
 
   echo "${now}" > "${last_check_file}" || {
     ssh_system_log "ERROR" "Unable to update last check file." "${error_log_file}"
-    return 1
   }
 
   if [[ -n ${ssh_sessions} ]]; then
@@ -286,6 +262,7 @@ handle_ssh_sessions() {
     local session_count
     session_count=$(echo "${ssh_sessions}" | wc -l)
     handle_ssh_threshold_exceeds "${session_count}" "${ssh_sessions}" "${email_alert_threshold}" "${email_subject}" "${recipients}" "${last_email_sent_file}"
+
   else
     ssh_system_log "INFO" "No SSH sessions found in this interval." "${log_file}"
   fi
@@ -359,6 +336,7 @@ handle_file_checks() {
 # Main function
 main() {
   check_root
+
   echo "Initializing SSHD IDS..."
 
   local service_name="ssh_monitor.service"
@@ -369,9 +347,10 @@ main() {
   local email_subject="SSH Monitor Alert"
   local last_check_file="/tmp/last_ssh_check"
 
-  local script_dir
-  script_dir=$(dirname "$(readlink -f "$0")")
-  local local_config_file="${script_dir}/ssh_monitor_config"
+  local script_dir script_path local_config_file
+  script_dir="/opt/ssh_monitor"
+  script_path="${script_dir}/ssh_monitor.sh"
+  local_config_file="${script_dir}/ssh_monitor_config"
 
   local default_log_file="/var/log/ssh_monitor.log"
   local error_log_file="/var/log/ssh_monitor_error.log"
@@ -383,13 +362,15 @@ main() {
   load_config "${local_config_file}" "${log_file}" "${error_log_file}" "${recipients}" "${email_alert_threshold}" "${email_subject}"
 
   if [[ $1 =~ ^(install|status|stop|disable)$ ]]; then
-    manage_daemon "${log_file}" "${error_log_file}" "${script_dir}" "${service_file}" "${service_name}" "${service_description}" "$1"
+    manage_daemon "${log_file}" "${error_log_file}" "${script_path}" "${service_file}" "${service_name}" "${service_description}" "$1"
     echo "SSH IDS management complete."
-  else
+  elif [[ $1 =~ ^start$ ]]; then
     command -v last >/dev/null 2>&1 || {
       ssh_system_log "ERROR" "The 'last' command is not available. Please install the 'sysstat' package." "${error_log_file}"
       exit 1
     }
+
+    echo "Monitoring SSH sessions..."
 
     local cycle_duration=20
     while true; do
@@ -412,9 +393,26 @@ main() {
         ssh_system_log "INFO" "Warning: Script execution time exceeded the cycle duration." "${log_file}"
       fi
     done
-  fi
 
+    echo "Finished monitoring SSH sessions."
+  else
+    usage
+  fi
 }
 
 # Execute the main function with command line arguments
 main "$@"
+EOF
+}
+
+#######################################
+# description
+# Arguments:
+#  None
+#######################################
+main() {
+    generate_ssh_intrusion_detection
+    echo "SSH Intrusion Detection System installed successfully."
+}
+
+main

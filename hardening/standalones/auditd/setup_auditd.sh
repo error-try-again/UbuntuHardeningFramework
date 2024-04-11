@@ -12,6 +12,11 @@ check_root() {
   fi
 }
 
+#######################################
+# description
+# Arguments:
+#   0
+#######################################
 usage() {
   echo "Usage: $0 <recipient_email_addresses> <sender_email_address>"
   echo "Example: $0 recipient1@ex.com,recipient2@ex.com sender@ex.com"
@@ -188,7 +193,7 @@ update_cron_job() {
 
   # Attempt to read existing cron jobs, suppressing errors about no existing crontab
   local current_cron_jobs
-  if ! current_cron_jobs=$(crontab -l 2>/dev/null); then
+  if ! current_cron_jobs=$(crontab -l 2> /dev/null); then
     log "No existing crontab for user. Creating new crontab..."
   fi
 
@@ -215,7 +220,7 @@ install_apt_packages() {
   log "Starting package installation process."
 
   # Verify that there are no apt locks
-  while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+  while fuser /var/lib/dpkg/lock > /dev/null 2>&1 || fuser /var/lib/apt/lists/lock > /dev/null 2>&1 || fuser /var/cache/apt/archives/lock > /dev/null 2>&1; do
     log "Waiting for other software managers to finish..."
     sleep 1
   done
@@ -267,7 +272,7 @@ main() {
   enable_service "auditd"
   restart_service "auditd"
 
-#  view_auditd_config
+  #  view_auditd_config
   show_auditd_aureport
 
   local script_location="/usr/local/bin/audit-report.sh"
