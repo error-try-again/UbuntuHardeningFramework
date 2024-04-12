@@ -105,7 +105,7 @@ create_jail_config() {
         [sshd]
         enabled = true
         port = ${ssh_port}
-        filter = sshd,ssh
+        filter = sshd
         logpath = /var/log/auth.log
         maxretry = 3
         findtime = 300
